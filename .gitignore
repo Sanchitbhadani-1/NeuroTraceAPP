@@ -1,0 +1,19 @@
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Internal notes — not part of the submission
+CLAUDE.md
+.claude/
+
+# Secrets. One line, and forgetting it is the expensive mistake.
+.env
+
+# Datasets — PaHaW is licence-restricted and this repo is public.
+# Put everything you generate from it under data/ too.
+data/
+*.svc
+
+# Python
+__pycache__/
+.venv/
