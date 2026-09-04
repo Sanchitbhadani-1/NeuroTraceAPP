@@ -1,0 +1,299 @@
+/* Design references: Linear.app (confident type, restrained palette, elevated
+   cards instead of blur) and Stripe.com (one soft animated gradient accent,
+   one unmistakable primary action). Adapted for the actual audience — older
+   adults and people with motor impairment — so: no blur-on-text, no
+   hover-only affordances, big touch targets, and every animation has an
+   off switch via prefers-reduced-motion. */
+
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #f7f6f4;
+  --surface: #ffffff;
+  --ink: #17181c;
+  --ink-soft: #52555c;
+  --border: #e4e2de;
+  --accent: #4c3fe0;
+  --accent-ink: #ffffff;
+  --accent-soft: #efedfe;
+  --warm: #ff7a59;
+
+  --radius: 20px;
+  --shadow: 0 1px 2px rgba(23, 24, 28, 0.04), 0 12px 28px -12px rgba(23, 24, 28, 0.14);
+
+  --space-sm: clamp(0.75rem, 0.65rem + 0.4vw, 1rem);
+  --space-md: clamp(1.25rem, 1rem + 1vw, 2rem);
+  --space-lg: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+
+  --font-size-body: clamp(1.05rem, 1rem + 0.3vw, 1.2rem);
+  --font-size-h1: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem);
+
+  --dur: 280ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121214;
+    --surface: #1b1c20;
+    --ink: #f4f3f1;
+    --ink-soft: #b4b2ae;
+    --border: #303136;
+    --accent: #8b7fff;
+    --accent-ink: #121214;
+    --accent-soft: #24213f;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: var(--space-md);
+  font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+  font-size: var(--font-size-body);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+/* One soft, slow-moving gradient wash behind everything — Stripe's mesh accent,
+   toned down to a whisper so it reads as calm, not busy. Fixed so it never
+   competes with foreground content or scrolls awkwardly. */
+.ambient {
+  position: fixed;
+  inset: -10vmax;
+  z-index: -1;
+  background:
+    radial-gradient(38vmax 38vmax at 12% 8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    radial-gradient(34vmax 34vmax at 88% 22%, color-mix(in srgb, var(--warm) 14%, transparent), transparent 60%);
+  animation: drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-2vmax, 2vmax, 0) scale(1.06); }
+}
+
+.page {
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+/* ---------- brand mark: a spiral that draws itself once, then sits still.
+   Not decoration for its own sake — it's literally the shape the app measures. ---------- */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: var(--space-md);
+}
+
+.brand svg { display: block; }
+
+.brand-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* dasharray/dashoffset are computed and animated in app.js from the
+     path's real length — stroke-dashoffset: 0 here is the no-JS fallback
+     (fully drawn, not stuck invisible). */
+  stroke-dashoffset: 0;
+}
+
+.brand-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- step progress ---------- */
+
+.steps {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: var(--space-md);
+}
+
+.steps span {
+  height: 6px;
+  flex: 1;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background var(--dur) var(--ease);
+}
+
+.steps span.done { background: var(--accent); }
+
+/* ---------- screens as elevated cards, crossfade + rise between them ---------- */
+
+.screen {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-lg);
+  animation: enter var(--dur) var(--ease);
+}
+
+.screen[hidden] { display: none; }
+
+@keyframes enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-sm);
+}
+
+p { color: var(--ink-soft); }
+p strong { color: var(--ink); }
+
+/* ---------- controls ---------- */
+
+button {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.9rem 1.5rem;
+  min-height: 52px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 150ms var(--ease), box-shadow 150ms var(--ease), opacity 150ms;
+}
+
+button:active { transform: scale(0.97); }
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  min-height: 56px;
+}
+
+button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.nav-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin: var(--space-md) 0;
+  font-size: var(--font-size-body);
+}
+
+.check-row input {
+  width: 28px;
+  height: 28px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ---------- capture / replay ---------- */
+
+.canvas-wrap {
+  position: relative;
+  margin-top: var(--space-md);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  touch-action: none;
+}
+
+#speed-canvas {
+  aspect-ratio: 4 / 1;
+  margin-top: var(--space-sm);
+}
+
+.saved-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.95);
+  transition: opacity 220ms var(--ease), transform 220ms var(--ease);
+  pointer-events: none;
+}
+
+.saved-badge.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.saved-badge svg {
+  stroke: var(--accent);
+  stroke-width: 3;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+}
+
+.saved-badge.show svg {
+  animation: check 320ms var(--ease) 150ms forwards;
+}
+
+@keyframes check {
+  to { stroke-dashoffset: 0; }
+}
+
+/* ---------- motion & contrast preferences: never optional ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .ambient { animation: none; }
+  .screen { animation: none; }
+  button:active { transform: none; }
+  .saved-badge, .saved-badge svg { transition: none; animation: none; }
+  .saved-badge.show { opacity: 1; transform: none; }
+  .saved-badge.show svg { stroke-dashoffset: 0; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --border: #8a8a8a; }
+  .screen { box-shadow: none; border-width: 2px; }
+}
