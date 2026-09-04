@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NeuroTrace recorded trace",
+  "description": "Week 1 agreed shape. Both the JS capture code (app/) and the Python feature extraction (training/) must read this shape identically — see NeuroTrace_Timeline_v7.md Part Two, Week 1.",
+  "type": "object",
+  "required": ["task", "hand", "inputType", "deviceLabel", "samples"],
+  "properties": {
+    "task": {
+      "type": "string",
+      "enum": ["spiral", "writing", "tap", "motion"],
+      "description": "Which of the four capture screens produced this trace."
+    },
+    "hand": { "type": "string", "enum": ["left", "right"] },
+    "inputType": {
+      "type": "string",
+      "enum": ["pencil", "touch", "mouse"],
+      "description": "PointerEvent.pointerType at capture time."
+    },
+    "deviceLabel": { "type": "string", "description": "Free-text device hint, e.g. \"iPad Pro 11\"." },
+    "samples": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["t", "x", "y"],
+        "properties": {
+          "t": { "type": "number", "description": "Seconds since first sample in this trace." },
+          "x": { "type": "number", "description": "Canvas-space pixels." },
+          "y": { "type": "number", "description": "Canvas-space pixels." },
+          "pressure": { "type": "number", "minimum": 0, "maximum": 1, "description": "0 for mouse/touch without pressure support." },
+          "tiltX": { "type": "number", "description": "Degrees, 0 when unsupported." },
+          "tiltY": { "type": "number", "description": "Degrees, 0 when unsupported." }
+        }
+      }
+    }
+  }
+}
