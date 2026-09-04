@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 def create_spiral_synth(duration=20, fs=240, turns=4, radius=300, tremor_hz=0.0, tremor_amp=0.0):
     n_samples = duration * fs
@@ -14,7 +14,23 @@ def create_spiral_synth(duration=20, fs=240, turns=4, radius=300, tremor_hz=0.0,
 
     return t, x, y
 
+
+def create_handwriting_synth(duration=10, fs=100, freq=2.0, base_amplitude=40, shrink_pct=0.0):
+    """Repetitive cursive-like writing: x advances steadily, y oscillates at `freq` Hz
+    with an amplitude that declines linearly from base_amplitude to
+    base_amplitude * (1 - shrink_pct) over the trace. shrink_pct=0.30 -> writing
+    shrinks 30% by the end, for validating amplitude-decline extraction."""
+    n_samples = int(duration * fs)
+    t = np.linspace(0, duration, n_samples)
+    envelope = base_amplitude * (1 - shrink_pct * (t / duration))
+    x = t * 50
+    y = envelope * np.sin(2 * np.pi * freq * t)
+    return t, x, y
+
+
 def plot_spiral():
+    import matplotlib.pyplot as plt
+
     t1, x1, y1 = create_spiral_synth()
     t2, x2, y2 = create_spiral_synth(tremor_hz=5, tremor_amp=8)
 
@@ -30,4 +46,6 @@ def plot_spiral():
 
     plt.show()
 
-plot_spiral()
+
+if __name__ == "__main__":
+    plot_spiral()
