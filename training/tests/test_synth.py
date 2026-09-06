@@ -18,6 +18,7 @@ from neurotrace.preprocess import (
 )
 
 from neurotrace.pen import reference_spiral
+from neurotrace.features import distance_to_reference
 
 
 
@@ -54,7 +55,7 @@ def test_spiral_radius_monotonic_only_without_tremor():
 
 def test_clean_spiral_lies_on_the_reference():
     t, x, y = create_spiral_synth(tremor_amp=0.0)
-    t, x, y = preprocess_trace(t, x, y)
+    x, y = normalize(x, y)
 
     rx, ry = reference_spiral()
     rx, ry = normalize(rx, ry)
@@ -86,12 +87,6 @@ def test_writing_envelope_magnitudes():
 
 
 def test_writing_trend_sign_is_preserved():
-    """
-    The magnitude says a sequence effect exists. The SIGN says which
-    disease: PD shrinks, ET grows. If anything downstream ever wraps
-    this quantity in abs(), the two become indistinguishable — and
-    this test is what catches it.
-    """
     _, _, pd = create_writing_synth(size_trend=-0.05)
     _, _, et = create_writing_synth(size_trend=+0.05)
 
