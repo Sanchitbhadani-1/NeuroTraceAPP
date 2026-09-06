@@ -11,6 +11,14 @@ from neurotrace.synth import (
     FIDELITY_TIERS,
 )
 
+from neurotrace.preprocess import (
+    resample_uniform,
+    preprocess_trace,
+    normalize,
+)
+
+from neurotrace.pen import reference_spiral
+
 
 
 def peak_ratio(y):
@@ -41,6 +49,18 @@ def test_spiral_radius_monotonic_only_without_tremor():
 
     _, xt, yt = create_spiral_synth(tremor_hz=5, tremor_amp=8)
     assert not np.all(np.diff(radius(xt, yt)) > 0)
+
+
+
+def test_clean_spiral_lies_on_the_reference():
+    t, x, y = create_spiral_synth(tremor_amp=0.0)
+    t, x, y = preprocess_trace(t, x, y)
+
+    rx, ry = reference_spiral()
+    rx, ry = normalize(rx, ry)
+
+    d = distance_to_reference(x, y, rx, ry)
+    assert np.max(np.abs(d)) < 0.01
 
 
 
@@ -131,3 +151,20 @@ def test_degrade_breaks_uniform_sampling():
     assert np.std(np.diff(dt)) > 0.001      # gaps are now irregular
     assert len(dt) < len(t)                 # samples were lost
     assert np.all(np.diff(dt) > 0)          # time still moves forward
+
+
+
+def test_resample_recovers_a_degraded_trace():
+    t, x, y = create_spiral_synth()
+
+    dt, dx, dy = degrade(t, x, y, target_fs=120, timing_jitter=0.002,
+                         drop_rate=0.02, quantize=0.0, seed=5)
+
+    rt, rx, ry = resample_uniform(dt, dx, dy, fs=100.0)
+
+    assert np.allclose(np.diff(rt), 0.01)          # the grid is uniform
+
+    truth_x = np.interp(rt, t, x)                  # original, at grid times
+    truth_y = np.interp(rt, t, y)
+    assert np.max(np.abs(rx - truth_x)) < 5.0
+    assert np.max(np.abs(ry - truth_y)) < 5.0
