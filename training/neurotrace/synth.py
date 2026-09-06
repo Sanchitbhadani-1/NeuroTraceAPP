@@ -71,26 +71,8 @@ FIDELITY_TIERS = {
 }
 
 
-def degrade(t, x, y, target_fs=None, timing_jitter=0.0,
-            drop_rate=0.0, quantize=0.0, seed=0):
-    """
-    Make a clean synthetic trace look like it came from worse hardware.
 
-    Two jobs: it is the only way to test a resampler (you cannot observe a
-    resampler working on data that is already uniformly sampled), and it is
-    the instrument for the three-tier degradation experiment.
-
-    target_fs      keep every Nth sample to land near this rate, in Hz.
-                   None leaves the sample rate alone.
-    timing_jitter  SD of timestamp noise, in seconds. Browsers fire pointer
-                   events when the main thread is free, not on a clock.
-    drop_rate      fraction of samples never delivered, 0..1.
-    quantize       snap positions to a grid of this size. 1.0 = integer pixels.
-    seed           reproducibility. The tests depend on it.
-
-    Returns t, x, y — shorter than the input, and NOT uniformly sampled.
-    With no arguments set it returns the input unchanged.
-    """
+def degrade(t, x, y, target_fs=None, timing_jitter=0.0, drop_rate=0.0, quantize=0.0, seed=0):
     rng = np.random.default_rng(seed)
 
     t = np.asarray(t, dtype=float)
