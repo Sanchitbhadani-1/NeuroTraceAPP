@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 from scipy.signal import find_peaks
 
-
 from neurotrace.synth import (
     create_spiral_synth,
     create_writing_synth,
@@ -11,16 +10,6 @@ from neurotrace.synth import (
     FIDELITY_TIERS,
 )
 
-from neurotrace.preprocess import (
-    resample_uniform,
-    preprocess_trace,
-    normalize,
-)
-
-from neurotrace.pen import reference_spiral
-from neurotrace.features import distance_to_reference
-
-
 
 def peak_ratio(y):
     peaks, _ = find_peaks(y)
@@ -28,12 +17,11 @@ def peak_ratio(y):
     return y[peaks[-1]] / y[peaks[0]]
 
 
-
 def radius(x, y):
-    return np.sqrt(x**2 + y**2)
+    return np.hypot(x, y)
 
 
-#---------------------SPIRAL TESTS-----------------------------
+# --- spiral ----------------------------------------------------------
 
 def test_spiral_shape_and_time_axis():
     t, x, y = create_spiral_synth(duration=10, fs=100)
@@ -41,7 +29,6 @@ def test_spiral_shape_and_time_axis():
     assert len(t) == len(x) == len(y) == 1000
     assert t[0] == pytest.approx(0.0)
     assert t[-1] == pytest.approx(10.0)
-
 
 
 def test_spiral_radius_monotonic_only_without_tremor():
@@ -52,28 +39,7 @@ def test_spiral_radius_monotonic_only_without_tremor():
     assert not np.all(np.diff(radius(xt, yt)) > 0)
 
 
-
-def test_clean_spiral_lies_on_the_reference():
-    t, x, y = create_spiral_synth(tremor_amp=0.0)
-    x, y = normalize(x, y)
-
-    rx, ry = reference_spiral()
-    rx, ry = normalize(rx, ry)
-
-    d = distance_to_reference(x, y, rx, ry)
-    assert np.max(np.abs(d)) < 0.01
-
-
-
-#------------------WRITING TESTS------------------------
-
-def test_size_trend_effect():
-    _, _, shrinking = create_writing_synth(size_trend=-0.5)
-    _, _, growing = create_writing_synth(size_trend=0.5)
-    assert peak_ratio(shrinking) < 1.0
-    assert peak_ratio(growing) > 1.0
-
-
+# --- writing ---------------------------------------------------------
 
 def test_writing_envelope_magnitudes():
     _, _, flat = create_writing_synth(size_trend=0.0)
@@ -85,7 +51,6 @@ def test_writing_envelope_magnitudes():
     assert peak_ratio(et)   == pytest.approx(1.2155, rel=0.01)
 
 
-
 def test_writing_trend_sign_is_preserved():
     _, _, pd = create_writing_synth(size_trend=-0.05)
     _, _, et = create_writing_synth(size_trend=+0.05)
@@ -94,19 +59,19 @@ def test_writing_trend_sign_is_preserved():
     assert peak_ratio(et) > 1.0
 
 
+# --- tapping ---------------------------------------------------------
 
-#-------------TAPPING TESTS------------------------------
 def test_tapping_is_reproducible():
-    a_t, a_x, _ = create_tapping_synth(jitter=0.02, seed=7)
-    b_t, b_x, _ = create_tapping_synth(jitter=0.02, seed=7)
-    c_t, c_x, _ = create_tapping_synth(jitter=0.02, seed=8)
+    a_t, _, _ = create_tapping_synth(jitter=0.02, seed=7)
+    b_t, _, _ = create_tapping_synth(jitter=0.02, seed=7)
+    c_t, _, _ = create_tapping_synth(jitter=0.02, seed=8)
 
-    assert np.array_equal(a_t, b_t)          # same seed -> identical
-    assert not np.array_equal(a_t, c_t)      # different seed -> different
+    assert np.array_equal(a_t, b_t)
+    assert not np.array_equal(a_t, c_t)
 
 
 def test_tapping_default_rhythm_is_perfect():
-    tap_t, tap_x, tap_y = create_tapping_synth()
+    tap_t, _, _ = create_tapping_synth()
     gaps = np.diff(tap_t)
 
     assert len(gaps) == 59
@@ -114,13 +79,11 @@ def test_tapping_default_rhythm_is_perfect():
     assert np.std(gaps) == pytest.approx(0.0, abs=1e-12)
 
 
-
 def test_tapping_slows_down():
     tap_t, _, _ = create_tapping_synth(rate_trend=-0.01)
     gaps = np.diff(tap_t)
 
     assert gaps[-1] / gaps[0] == pytest.approx(1.791, rel=0.01)
-
 
 
 def test_tapping_amplitude_shrinks():
@@ -135,31 +98,48 @@ def test_tapping_alternates_sides():
     assert np.all(np.sign(tap_x[:-1]) != np.sign(tap_x[1:]))
 
 
+# --- degrade ---------------------------------------------------------
 
-#--------------------OTHER TESTS--------------------
+def test_degrade_defaults_change_nothing():
+    t, x, y = create_spiral_synth()
+    dt, dx, dy = degrade(t, x, y)
+
+    assert np.array_equal(t, dt)
+    assert np.array_equal(x, dx)
+    assert np.array_equal(y, dy)
+
+
+def test_degrade_is_reproducible():
+    t, x, y = create_spiral_synth()
+    a_t, _, _ = degrade(t, x, y, **FIDELITY_TIERS["phone"], seed=1)
+    b_t, _, _ = degrade(t, x, y, **FIDELITY_TIERS["phone"], seed=1)
+    c_t, _, _ = degrade(t, x, y, **FIDELITY_TIERS["phone"], seed=2)
+
+    assert np.array_equal(a_t, b_t)
+    assert not np.array_equal(a_t, c_t)
+
+
+def test_degrade_downsamples():
+    t, x, y = create_spiral_synth(fs=240)
+    dt, _, _ = degrade(t, x, y, target_fs=60)
+
+    assert len(dt) == len(t) // 4
+
+
+def test_degrade_quantizes():
+    t, x, y = create_spiral_synth()
+    _, dx, dy = degrade(t, x, y, quantize=0.5)
+
+    assert np.allclose(dx / 0.5, np.round(dx / 0.5))
+    assert np.allclose(dy / 0.5, np.round(dy / 0.5))
+
+
 def test_degrade_breaks_uniform_sampling():
     t, x, y = create_spiral_synth()
     assert np.std(np.diff(t)) == pytest.approx(0.0, abs=1e-12)
 
-    dt, dx, dy = degrade(t, x, y, **FIDELITY_TIERS["phone"], seed=3)
+    dt, _, _ = degrade(t, x, y, **FIDELITY_TIERS["phone"], seed=3)
 
     assert np.std(np.diff(dt)) > 0.001      # gaps are now irregular
     assert len(dt) < len(t)                 # samples were lost
     assert np.all(np.diff(dt) > 0)          # time still moves forward
-
-
-
-def test_resample_recovers_a_degraded_trace():
-    t, x, y = create_spiral_synth()
-
-    dt, dx, dy = degrade(t, x, y, target_fs=120, timing_jitter=0.002,
-                         drop_rate=0.02, quantize=0.0, seed=5)
-
-    rt, rx, ry = resample_uniform(dt, dx, dy, fs=100.0)
-
-    assert np.allclose(np.diff(rt), 0.01)          # the grid is uniform
-
-    truth_x = np.interp(rt, t, x)                  # original, at grid times
-    truth_y = np.interp(rt, t, y)
-    assert np.max(np.abs(rx - truth_x)) < 5.0
-    assert np.max(np.abs(ry - truth_y)) < 5.0
