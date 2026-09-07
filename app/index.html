@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <title>NeuroTrace</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <div class="page">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <path class="brand-path" id="brand-spiral" />
+      </svg>
+      <span class="brand-name">NeuroTrace</span>
+    </div>
+
+    <div class="steps" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="steps">
+      <span class="done"></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <section id="screen-onboarding" class="screen" data-step="1">
+      <h1>Measure how you move.</h1>
+      <p>NeuroTrace turns an ordinary phone into a motor-function measurement tool.</p>
+      <p>Machine learning models trained on clinical movement-disorder datasets extract motor
+         features that clinicians look for in Parkinson's disease.</p>
+      <p><strong>These are measurements of how you moved during a few short tasks, compared with
+         other people who took the same tasks. They are not a diagnosis and cannot tell you whether
+         you have a neurological condition.</strong></p>
+      <div class="nav-row">
+        <button class="primary" data-next="screen-consent">Continue</button>
+      </div>
+    </section>
+
+    <section id="screen-consent" class="screen" data-step="2" hidden>
+      <h1>Before you start</h1>
+      <p>All analysis runs on the device. No motor data ever leaves the phone unless you separately
+         choose to contribute it, which is off by default.</p>
+      <label class="check-row">
+        <input type="checkbox" id="consent-check">
+        I understand this is a measurement tool, not a medical diagnosis.
+      </label>
+      <div class="nav-row">
+        <button data-back="screen-onboarding">Back</button>
+        <button class="primary" id="consent-continue" data-next="screen-agegate" disabled>Continue</button>
+      </div>
+    </section>
+
+    <section id="screen-agegate" class="screen" data-step="3" hidden>
+      <h1>One more thing</h1>
+      <label class="check-row">
+        <input type="checkbox" id="agegate-check">
+        I am 18 years of age or older.
+      </label>
+      <div class="nav-row">
+        <button data-back="screen-consent">Back</button>
+        <button class="primary" id="agegate-continue" data-next="screen-capture" disabled>Continue</button>
+      </div>
+    </section>
+
+    <section id="screen-capture" class="screen" data-step="4" hidden>
+      <h1>Spiral trace</h1>
+      <p>Draw the spiral once, following the guide, at a comfortable pace.</p>
+      <div class="canvas-wrap">
+        <canvas id="capture-canvas" width="600" height="600"></canvas>
+        <div class="saved-badge" id="saved-badge">
+          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4"/></svg>
+          Saved
+        </div>
+      </div>
+      <div class="nav-row">
+        <button data-back="screen-onboarding">Start over</button>
+        <button id="clear-btn">Clear</button>
+        <button class="primary" id="replay-btn" data-next="screen-replay" disabled>Replay</button>
+      </div>
+    </section>
+
+    <section id="screen-replay" class="screen" data-step="5" hidden>
+      <h1>Replay</h1>
+      <canvas id="replay-canvas" width="600" height="600"></canvas>
+      <canvas id="speed-canvas" width="600" height="150"></canvas>
+      <div class="nav-row">
+        <button class="primary" id="replay-again-btn">Play again</button>
+        <button data-back="screen-capture">Back to capture</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
