@@ -2,28 +2,6 @@ import numpy as np
 from scipy.signal import butter, filtfilt, find_peaks, welch
 
 
-# Center on the origin, then scale to unit RMS radius
-def normalize(x, y):
-    x = np.asarray(x, dtype=float) - np.mean(x)
-    y = np.asarray(y, dtype=float) - np.mean(y)
-    scale = np.sqrt(np.mean(x**2 + y**2))
-    return x / scale, y / scale
-
-
-def resample_uniform(t, *channels, fs=100):
-    """Interpolate one or more channels from raw timestamps onto a uniform fs-Hz grid."""
-    t = np.asarray(t, dtype=float)
-    n = max(int(round((t[-1] - t[0]) * fs)) + 1, 2)
-    t_uniform = np.linspace(t[0], t[-1], n)
-    resampled = tuple(np.interp(t_uniform, t, np.asarray(c, dtype=float)) for c in channels)
-    return (t_uniform,) + resampled
-
-
-def lowpass_filter(x, fs, cutoff=15.0, order=4):
-    b, a = butter(order, cutoff / (fs / 2), btype="low")
-    return filtfilt(b, a, x)
-
-
 def highpass_filter(x, fs, cutoff=2.0, order=2):
     b, a = butter(order, cutoff / (fs / 2), btype="high")
     return filtfilt(b, a, x)
