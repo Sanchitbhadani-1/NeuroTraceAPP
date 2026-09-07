@@ -2,10 +2,11 @@
 Inject a known 5.5 Hz tremor -> confirm ~5.5 Hz comes back.
 Generate handwriting shrinking 30% -> confirm ~-30% comes back.
 """
+
 import pytest
 
 from neurotrace.synth import create_spiral_synth, create_handwriting_synth
-from neurotrace.features import extract_spiral_features, extract_handwriting_features
+from neurotrace.pipeline import extract_spiral_features, extract_handwriting_features
 
 FS = 100
 
