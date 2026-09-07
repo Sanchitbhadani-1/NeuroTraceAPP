@@ -1,6 +1,18 @@
 import numpy as np
 
-from .signal import normalize
+from .preprocess import normalize
+
+# Ideal spiral that is being recorded against. Kept for features.distance_to_reference;
+# spiral_deviation below fits its own rate instead and needs no fixed reference.
+def reference_spiral(n_points=10000, turns=4):
+    progress = np.linspace(0, 1, n_points)
+    theta = progress * turns * 2 * np.pi
+    r = progress
+
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
+
+    return x, y
 
 
 def spiral_deviation(x, y):

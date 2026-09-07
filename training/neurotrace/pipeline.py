@@ -1,11 +1,16 @@
 """Raw trace -> named feature dict. Pipeline order per the timeline: clean,
 resample to 100Hz, normalize, low-pass at 15Hz, then derive features.
 
+Preprocessing (clean/resample/normalize/low_pass) lives in preprocess.py and is
+shared with the A-track feature primitives in features.py. This module owns only
+the orchestration and the named outputs.
+
 Feature names match the model.json featureOrder style in NeuroTrace_Timeline_v7.md
 (e.g. "spiral_sparc", "spiral_tremor_4_6", "hw_amplitude_decline_pct").
 """
 import numpy as np
 
+from . import preprocess as pre
 from . import signal as sig
 from .pen import spiral_deviation
 
@@ -16,34 +21,44 @@ TREMOR_SEARCH_BAND = (3, 8)
 # needs at least ~13 samples to filter without raising. 16 gives it room.
 MIN_SAMPLES = 16
 
-
-def clean_trace(t, x, y):
-    """Sort by time, then drop non-finite samples and duplicate timestamps."""
-    t, x, y = np.asarray(t, dtype=float), np.asarray(x, dtype=float), np.asarray(y, dtype=float)
-    order = np.argsort(t, kind="stable")
-    t, x, y = t[order], x[order], y[order]
-    finite = np.isfinite(t) & np.isfinite(x) & np.isfinite(y)
-    t, x, y = t[finite], x[finite], y[finite]
-    _, first_idx = np.unique(t, return_index=True)
-    keep = np.sort(first_idx)
-    return t[keep], x[keep], y[keep]
+SPIRAL_KEYS = (
+    "spiral_sparc",
+    "spiral_ldj",
+    "spiral_tremor_4_6",
+    "spiral_tremor_dominant_hz",
+    "spiral_deviation",
+)
+HANDWRITING_KEYS = ("hw_amplitude_decline_pct",)
 
 
-def _degenerate(t, x, y):
-    """Too short for the low-pass filter, or no movement at all (normalize()
-    would divide by a zero RMS radius)."""
-    return len(t) < MIN_SAMPLES or (np.ptp(x) == 0 and np.ptp(y) == 0)
+def _prepare(t, x, y, fs):
+    """clean -> resample -> normalize -> low-pass, or None if the trace is too
+    short, non-finite, or never moved. Returns the normalized coordinates
+    (tremor rides on these) alongside the filtered ones (speed uses these).
+
+    preprocess.clean only strips NaN, so inf is checked here — it would survive
+    cleaning and turn every downstream feature into nan silently.
+    """
+    t, x, y = pre.clean(t, x, y)
+    if len(t) < 2 or not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+        return None
+    if np.ptp(x) == 0 and np.ptp(y) == 0:
+        return None
+
+    t_u, x_u, y_u = pre.resample_uniform(t, x, y, fs=fs)
+    if len(t_u) < MIN_SAMPLES:
+        return None
+
+    x_n, y_n = pre.normalize(x_u, y_u)
+    _, x_f, y_f = pre.low_pass(t_u, x_n, y_n, fs=fs)
+    return x_u, y_u, x_n, y_n, x_f, y_f
 
 
 def extract_spiral_features(t, x, y, fs=100):
-    t, x, y = clean_trace(t, x, y)
-    keys = ("spiral_sparc", "spiral_ldj", "spiral_tremor_4_6", "spiral_tremor_dominant_hz", "spiral_deviation")
-    if _degenerate(t, x, y):
-        return {k: float("nan") for k in keys}
-
-    _, x_u, y_u = sig.resample_uniform(t, x, y, fs=fs)
-    x_n, y_n = sig.normalize(x_u, y_u)
-    x_f, y_f = sig.lowpass_filter(x_n, fs), sig.lowpass_filter(y_n, fs)
+    prepared = _prepare(t, x, y, fs)
+    if prepared is None:
+        return {k: float("nan") for k in SPIRAL_KEYS}
+    x_u, y_u, x_n, y_n, x_f, y_f = prepared
 
     spd = sig.speed(x_f, y_f, fs)
     residual = sig.spiral_tremor_residual(x_n, y_n, fs)
@@ -58,12 +73,11 @@ def extract_spiral_features(t, x, y, fs=100):
 
 
 def extract_handwriting_features(t, x, y, fs=100):
-    t, x, y = clean_trace(t, x, y)
-    if _degenerate(t, x, y):
-        return {"hw_amplitude_decline_pct": float("nan")}
+    prepared = _prepare(t, x, y, fs)
+    if prepared is None:
+        return {k: float("nan") for k in HANDWRITING_KEYS}
+    _, _, _, _, _, y_f = prepared
 
-    _, y_u = sig.resample_uniform(t, y, fs=fs)
-    y_f = sig.lowpass_filter(y_u, fs)
     return {
         "hw_amplitude_decline_pct": sig.envelope_decline_pct(y_f),
     }
