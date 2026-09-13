@@ -1,5 +1,4 @@
-from synth import create_spiral_synth
-from synth import create_writing_synth
+from neurotrace.synth import create_spiral_synth, create_writing_synth
 import matplotlib.pyplot as plt
 
 def plot_spiral():
@@ -43,8 +42,9 @@ def plot_writing(traces, suptitle=None):
     fig.tight_layout()
     plt.show()
 
-plot_writing([
-    ("healthy", *create_writing_synth()),
-    ("PD   size_trend=-0.05", *create_writing_synth(size_trend=-0.05)),
-    ("ET   size_trend=+0.05", *create_writing_synth(size_trend=+0.05)),
-], suptitle="repetitive writing task")
+if __name__ == "__main__":
+    plot_writing([
+        ("healthy", *create_writing_synth()),
+        ("PD   size_trend=-0.05", *create_writing_synth(size_trend=-0.05)),
+        ("ET   size_trend=+0.05", *create_writing_synth(size_trend=+0.05)),
+    ], suptitle="repetitive writing task")
