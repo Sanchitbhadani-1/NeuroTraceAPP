@@ -11,11 +11,11 @@ from neurotrace.synth import (
 from neurotrace.preprocess import normalize, preprocess_trace
 from neurotrace.pen import reference_spiral
 from neurotrace.features import (
-    distance_to_reference,
-    change_of_radius_direction,
+    spiral_fit_residual,
+    major_radius_reversals,
     kinematics,
     speed_features,
-    distance_features,
+    deviation_features,
     log_dimensionless_jerk,
     sparc,
     tremor_residual,
@@ -42,44 +42,84 @@ def prepped_writing(**kw):
     return preprocess_trace(t, x, y, fs=FS)
 
 
-# --- spiral distance -------------------------------------------------
+# --- spiral deviation ------------------------------------------------
 
-def test_clean_spiral_lies_on_the_reference():
+def test_clean_spiral_has_almost_no_deviation():
     _, x, y = create_spiral_synth(tremor_amp=0.0)
     x, y = normalize(x, y)
 
-    rx, ry = normalize(*reference_spiral())
+    assert np.std(spiral_fit_residual(x, y)) < 0.02
+    # Not exactly 0: the cos/sin centre correction is first order. It was
+    # 0.048 with no correction at all, and that part moved with turn count.
 
-    d = distance_to_reference(x, y, rx, ry)
-    assert np.max(np.abs(d)) < 0.01
+
+def test_deviation_is_the_same_whatever_spiral_was_drawn():
+    # THE reason this replaced distance_to_reference. A 4-turn anticlockwise
+    # spiral and a 2.75-turn clockwise one are different drawings of the same
+    # quality, so they must score the same. Against a saved template they did
+    # not - UCI's spiral is 2.75 turns clockwise and ours is 3.76 the other
+    # way, so the old feature measured the template, not the hand.
+    a = []
+    for turns, flip in ((4, +1), (2.75, -1), (3, +1), (2.75, +1)):
+        _, x, y = create_spiral_synth(turns=turns, tremor_hz=5, tremor_amp=8)
+        x, y = normalize(x, flip * y)
+        a.append(deviation_features(spiral_fit_residual(x, y))["std_deviation"])
+
+    assert max(a) / min(a) < 1.3
 
 
-def test_distance_features_near_zero_on_clean_spiral():
+def test_deviation_grows_with_tremor():
     _, x, y = create_spiral_synth(tremor_amp=0.0)
-    x, y = normalize(x, y)
-    rx, ry = normalize(*reference_spiral())
-    f = distance_features(distance_to_reference(x, y, rx, ry))
+    clean = deviation_features(spiral_fit_residual(*normalize(x, y)))
 
-    assert f["max_distance"] < 0.01
-    assert f["mean_distance"] < 0.01
-    assert f["std_distance"] < 0.01
-
-
-# --- radius reversals ------------------------------------------------
-
-def test_radius_reversals_zero_on_clean_spiral():
-    _, x, y = create_spiral_synth(tremor_amp=0.0)
-
-    assert change_of_radius_direction(x, y) == 0
-
-
-def test_radius_reversals_count_tremor_cycles():
-    # 5 Hz over 20 s is 100 cycles; each pulls the radius in and back
-    # out, so two reversals per cycle -> about 200.
     _, x, y = create_spiral_synth(tremor_hz=5, tremor_amp=8)
+    shaky = deviation_features(spiral_fit_residual(*normalize(x, y)))
 
-    n = change_of_radius_direction(x, y)
-    assert 150 <= n <= 250
+    assert shaky["std_deviation"] > 2.5 * clean["std_deviation"]
+
+
+def test_deviation_refuses_a_trace_too_short_to_be_a_spiral():
+    # A scribble has no angular span, so the fit would be meaningless.
+    # build_features catches this and skips the row.
+    _, x, y = create_spiral_synth(turns=0.3)
+
+    with pytest.raises(ValueError):
+        spiral_fit_residual(*normalize(x, y))
+
+
+# --- major radius reversals ------------------------------------------
+
+def test_no_major_reversals_on_a_clean_spiral():
+    _, x, y = create_spiral_synth(tremor_amp=0.0)
+
+    assert major_radius_reversals(*normalize(x, y)) == 0
+
+
+def test_quantization_alone_creates_no_major_reversals():
+    # THE reason this replaced change_of_radius_direction. Rounding a smooth
+    # spiral to a coarse grid made the old feature count hundreds of flips, so
+    # healthy subjects out-scored patients on UCI and the feature ran backwards.
+    t, x, y = create_spiral_synth(tremor_amp=0.0)
+
+    for grid in (1, 2, 4, 8):
+        qx, qy = degrade(t, x, y, quantize=grid, seed=0)[1:]
+        assert major_radius_reversals(*normalize(qx, qy)) == 0
+
+
+def test_major_reversals_count_real_doubling_back():
+    # Tremor big enough to clear min_retrace: 5 Hz for 20 s is 100 cycles,
+    # each pulling the radius in and back out, so about 200.
+    _, x, y = create_spiral_synth(tremor_hz=5, tremor_amp=60)
+
+    assert 150 <= major_radius_reversals(*normalize(x, y)) <= 250
+
+
+def test_small_wobble_is_ignored_on_purpose():
+    # Below min_retrace nothing is counted. That is the point, not a bug:
+    # it is what keeps grid noise out.
+    _, x, y = create_spiral_synth(tremor_hz=5, tremor_amp=2)
+
+    assert major_radius_reversals(*normalize(x, y)) == 0
 
 
 # --- kinematics ------------------------------------------------------
@@ -247,8 +287,8 @@ def test_tapping_rhythm_sd_matches_injected_jitter():
 
 SPIRAL_ORDER = [
     "spiral_duration",
-    "spiral_max_distance", "spiral_mean_distance", "spiral_std_distance",
-    "spiral_radius_reversals",
+    "spiral_max_deviation", "spiral_mean_deviation", "spiral_std_deviation",
+    "spiral_major_reversals",
     "spiral_mean_speed", "spiral_std_speed",
     "spiral_ldlj", "spiral_sparc",
     "spiral_tremor_4_6", "spiral_tremor_6_12", "spiral_tremor_dominant_hz",
@@ -256,12 +296,12 @@ SPIRAL_ORDER = [
 
 
 def test_extract_spiral_features_order_and_finite():
-    t, x, y = prepped_spiral(tremor_hz=5, tremor_amp=8)
+    t, x, y = prepped_spiral(tremor_hz=5, tremor_amp=60)
     f = extract_spiral_features(t, x, y, fs=FS)
 
     assert list(f.keys()) == SPIRAL_ORDER
     assert all(np.isfinite(v) for v in f.values())
-    assert f["spiral_radius_reversals"] > 100
+    assert f["spiral_major_reversals"] > 100
 
 
 def test_extract_writing_features_finite_with_sign():
@@ -274,7 +314,7 @@ def test_extract_writing_features_finite_with_sign():
 
 
 def test_features_from_trace_dispatches_on_task():
-    t, x, y = create_spiral_synth(tremor_hz=5, tremor_amp=8)
+    t, x, y = create_spiral_synth(tremor_hz=5, tremor_amp=60)
     trace = {
         "task": "spiral", "hand": "right", "inputType": "pencil",
         "deviceLabel": "test",

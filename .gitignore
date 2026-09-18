@@ -17,3 +17,5 @@ data/
 # Python
 __pycache__/
 .venv/
+# Parity fixture - 6 MB, regenerate with training/parity/make_reference.py
+training/parity/reference.json

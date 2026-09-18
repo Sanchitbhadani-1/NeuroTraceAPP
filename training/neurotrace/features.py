@@ -1,47 +1,76 @@
 import numpy as np
 from scipy.signal import butter, filtfilt, welch, find_peaks
-from scipy.spatial import cKDTree
 
-from neurotrace.preprocess import normalize, preprocess_trace
-from neurotrace.pen import reference_spiral
+from neurotrace.preprocess import preprocess_trace
 
 
 # --- spiral geometry -------------------------------------------------
 
-# How far off the ideal spiral every sample was
-def distance_to_reference(x, y, rx, ry):
+# The ideal spiral, fitted to THIS drawing instead of a saved template
+def spiral_fit_residual(x, y, min_turns=1.0):
 
-    tree = cKDTree(np.column_stack([rx, ry]))
-    # Builds a lookup of the reference spiral's points
+    theta = np.unwrap(np.arctan2(y, x))
+    r = np.hypot(x, y)
+    # How far round the pen has gone, and how far out it is
 
-    d, idx = tree.query(np.column_stack([x, y]))
-    # For each sample, the distance to the nearest reference point
+    span = abs(theta[-1] - theta[0]) / (2 * np.pi)
+    if span < min_turns:
+        raise ValueError(f"trace covers only {span:.2f} turns, too little to fit a spiral")
+    # Measured from the centroid, which sits INSIDE a short arc and so reads
+    # high: a 0.1 turn scribble measures 0.56. 1.0 rejects those, and the
+    # shortest real UCI spiral (1.83 turns drawn) still measures 1.6.
 
-    sample_r = np.hypot(x, y)
-    nearest_r = np.hypot(rx[idx], ry[idx])
-    # Distance from centre, for the sample and for its nearest reference point
+    A = np.column_stack([np.ones_like(theta), theta, np.cos(theta), np.sin(theta)])
+    # A spiral IS "radius grows in a straight line with angle", so columns 1
+    # and 2 are the spiral itself. Clockwise only flips the sign of the slope.
+    # Columns 3 and 4 soak up a wrong centre, which shows up as a cos/sin
+    # wobble in r. Without them a PERFECT spiral scores 0.048 instead of 0.
 
-    return np.where(sample_r >= nearest_r, d, -d)
-    # SIGNED - positive means outside the line, negative means inside
+    p, *_ = np.linalg.lstsq(A, r, rcond=None)
+
+    return r - A @ p
+    # SIGNED - positive means further out than ideal, negative means inside.
+    # Four columns, one solve. In JavaScript: build A'A and A'r and do
+    # Gaussian elimination on a 4x4. No optimizer needed.
 
 
-# Münster F5, their best single feature - how many times the pen doubled back
-def change_of_radius_direction(x, y):
+# How many times the pen properly doubled back
+def major_radius_reversals(x, y, min_retrace=0.10):
+    # min_retrace is in NORMALIZED units, so only valid after normalize().
+    # Counting every sign flip instead counts quantization jitter: the raw
+    # version scored AUC 0.45 on UCI and ran backwards. See docs/DATASETS.md
 
     r = np.hypot(x, y)
-    dr = np.diff(r)
-    # Whether the radius grew or shrank between each pair of samples
 
-    dr = dr[dr != 0]
-    # Drop exact zeros - quantized data has runs of them and np.sign would
-    # call each one a direction change
+    count = 0
+    direction = 0
+    extreme = r[0]
+    # Remember the furthest the radius has got so far, and which way we're going
 
-    if len(dr) < 2:
-        return 0
+    for v in r:
+        if direction == 0:
+            if v > extreme + min_retrace:
+                direction, extreme = 1, v
+            elif v < extreme - min_retrace:
+                direction, extreme = -1, v
+            # Haven't moved far enough yet to know which way we started
 
-    s = np.sign(dr)
-    return int(np.count_nonzero(s[:-1] != s[1:]))
-    # Count how often the sign flips
+        elif direction == 1:
+            if v > extreme:
+                extreme = v
+            elif v < extreme - min_retrace:
+                count, direction, extreme = count + 1, -1, v
+            # Going out. Only a pull-back bigger than min_retrace counts
+
+        else:
+            if v < extreme:
+                extreme = v
+            elif v > extreme + min_retrace:
+                count, direction, extreme = count + 1, 1, v
+            # Going in. Same rule the other way
+
+    return count
+    # A plain loop on purpose - it ports to JavaScript line for line
 
 
 # --- kinematics ------------------------------------------------------
@@ -71,11 +100,11 @@ def speed_features(speed):
 
 
 # Münster F2, F3 and F4
-def distance_features(d):
+def deviation_features(d):
     return {
-        "max_distance":  float(np.max(np.abs(d))),
-        "mean_distance": float(np.mean(np.abs(d))),
-        "std_distance":  float(np.std(d)),
+        "max_deviation":  float(np.max(np.abs(d))),
+        "mean_deviation": float(np.mean(np.abs(d))),
+        "std_deviation":  float(np.std(d)),
         # std uses the SIGNED values - spread around the line, not spread of sizes
     }
 
@@ -217,20 +246,20 @@ def amplitude_trend(heights):
 
 def extract_spiral_features(t, x, y, fs=100.0):
 
-    rx, ry = normalize(*reference_spiral())
-    # The ideal spiral, in the same normalized frame as the trace
+    d = spiral_fit_residual(x, y)
+    # No saved template - pen.reference_spiral only draws the on-screen guide
+    # now, so changing that guide can never move a feature
 
-    d = distance_to_reference(x, y, rx, ry)
     speed, accel, jerk = kinematics(t, x, y)
     residual = tremor_residual(x, y, fs)
 
     f = {}
     f["spiral_duration"] = float(t[-1] - t[0])                      # F11
 
-    for k, v in distance_features(d).items():                       # F2-F4
+    for k, v in deviation_features(d).items():                      # F2-F4
         f["spiral_" + k] = v
 
-    f["spiral_radius_reversals"] = change_of_radius_direction(x, y)  # F5
+    f["spiral_major_reversals"] = major_radius_reversals(x, y)      # F5, fixed
 
     for k, v in speed_features(speed).items():                      # F12-F13
         f["spiral_" + k] = v
