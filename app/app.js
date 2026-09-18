@@ -86,7 +86,7 @@ function showScreen(id) {
   if (id === "screen-replay") {
     ({ width: replayW, height: replayH } = fitCanvasToDisplay(replayCanvas));
     ({ width: speedW, height: speedH } = fitCanvasToDisplay(speedCanvas));
-    startReplay();
+    startReplay(!REDUCED_MOTION); // auto-play on arrival: motion only if they didn't opt out
   }
 }
 
@@ -196,8 +196,10 @@ captureCanvas.addEventListener("pointerdown", (ev) => {
 
 captureCanvas.addEventListener("pointermove", (ev) => {
   if (!capturing) return;
-  const events = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [ev];
-  for (const coalesced of events) {
+  // Chrome hands back the full sub-frame history; some browsers hand back an
+  // empty list, which would drop every move sample and leave Replay disabled.
+  const batch = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
+  for (const coalesced of batch.length ? batch : [ev]) {
     const s = addSample(coalesced);
     captureCtx.lineTo(s.x, s.y);
   }
@@ -254,6 +256,7 @@ let replayW = 0, replayH = 0;
 const speedCanvas = document.getElementById("speed-canvas");
 const speedCtx = speedCanvas.getContext("2d");
 let speedW = 0, speedH = 0;
+let replayFrame = null;
 const replayAgainBtn = document.getElementById("replay-again-btn");
 
 function drawSpeedGraph(trace) {
@@ -292,7 +295,11 @@ function drawSpeedGraph(trace) {
   speedCtx.stroke();
 }
 
-function playReplay(trace) {
+// `animate` is the user explicitly asking to watch the stroke redraw (Play
+// again). Landing on the screen replays by itself, so that one honours
+// prefers-reduced-motion and paints the finished trace in a single frame.
+function playReplay(trace, animate) {
+  cancelAnimationFrame(replayFrame); // don't leave an older loop drawing over this one
   replayCtx.clearRect(0, 0, replayW, replayH);
   drawSpiralGuide(replayCtx, replayW, replayH);
   const pts = trace.samples;
@@ -309,7 +316,7 @@ function playReplay(trace) {
     replayCtx.stroke();
   }
 
-  if (REDUCED_MOTION) {
+  if (!animate) {
     for (let i = 1; i < pts.length; i++) drawSegment(i);
     return;
   }
@@ -322,18 +329,22 @@ function playReplay(trace) {
       drawSegment(i);
       i++;
     }
-    if (i < pts.length) requestAnimationFrame(step);
+    if (i < pts.length) replayFrame = requestAnimationFrame(step);
   }
-  requestAnimationFrame(step);
+  replayFrame = requestAnimationFrame(step);
 }
 
-function startReplay() {
+function startReplay(animate) {
   const trace = loadTrace();
-  if (!trace) return;
+  if (!trace || !trace.samples || trace.samples.length < 2) {
+    // silent return here is what makes a dead Play again button impossible to debug
+    console.warn("NeuroTrace: no replayable trace saved — capture a spiral first");
+    return;
+  }
   drawSpeedGraph(trace);
-  playReplay(trace);
+  playReplay(trace, animate);
 }
-replayAgainBtn.addEventListener("click", startReplay);
+replayAgainBtn.addEventListener("click", () => startReplay(true));
 
 // ---------- init ----------
 // (capture/replay canvases are sized lazily in showScreen — they start
