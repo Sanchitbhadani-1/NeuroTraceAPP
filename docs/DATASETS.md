@@ -222,11 +222,10 @@ Not in `data/`, and deliberately so. It is licence-restricted, obtained from a
 private provider, and the agreement is between Sanchit and that provider — it
 does not cover handing raw recordings to a third-party AI service.
 
-**Rules, which must survive into future sessions because Claude has no memory
-across them:**
+**Rules:**
 
-- The raw `.svc` files stay outside the folders shared with Claude.
-- Claude never opens them. `.gitignore` does not enforce this; folder placement does.
+- The raw `.svc` files stay outside any folder shared with a third-party tool or service.
+- Only Sanchit's own local scripts open them. `.gitignore` does not enforce this; folder placement does.
 - Only derived, aggregate numbers leave the machine: feature tables, means, SDs,
   slopes, model scores. Never coordinate rows.
 - The extraction script is written here and run by Sanchit locally; only the
