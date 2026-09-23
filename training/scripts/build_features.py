@@ -1,57 +1,85 @@
-"""Runs every recording through preprocess + extract and writes one feature table.
+"""Every recording through preprocess + extract, into one feature table.
 
-Usage:
-    python scripts/build_features.py <uci395_root> [out.csv]
+    PYTHONPATH=. python scripts/build_features.py <root> <out.csv> [--source uci|collected]
 
-Only aggregate numbers go in the table - never coordinate rows. Safe to share.
+collected gives one row PER TRIAL, so aggregate_trials.py can average them and
+noise.py can measure what the averaging buys.
+Aggregate numbers only - never coordinate rows. Safe to share.
 """
 
-import sys
+import argparse
 import warnings
 
-import numpy as np
 import pandas as pd
 
 from neurotrace.datasets import iter_uci
+from neurotrace.collected import iter_collected
 from neurotrace.preprocess import preprocess_trace
 from neurotrace.features import extract_spiral_features
+from neurotrace.extra import pressure_features
 
 FS = 100.0
 
 
-def build(root):
+def extract(rec):
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        t, x, y = preprocess_trace(rec["t"], rec["x"], rec["y"], fs=FS)
+        f = extract_spiral_features(t, x, y, fs=FS)
+
+    f.update(pressure_features(rec["t"], rec["pressure"]))
+    # Raw samples, not the resampled trace - pressure is a per-sample reading
+
+    return f
+
+
+def build(records):
+
     rows, skipped = [], []
-    for rec in iter_uci(root):
+    for rec in records:
+
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                t, x, y = preprocess_trace(rec["t"], rec["x"], rec["y"], fs=FS)
-                f = extract_spiral_features(t, x, y, fs=FS)
+            f = extract(rec)
         except ValueError as e:
-            skipped.append((rec["subject_id"], str(e)))
+            skipped.append((rec["subject_id"], rec.get("trial", 1), str(e)))
             continue
-        # The library is strict on purpose; the batch job says what it skipped
+        # Library is strict, batch job is tolerant and says what it skipped
 
         rows.append({
             "subject_id": rec["subject_id"],
             "label": rec["label"],
+            "diagnosis": rec.get("diagnosis", "parkinsons" if rec["label"] else "none"),
             "source": rec["source"],
-            "release": rec["subject_id"].split(":")[1],
+            "release": rec.get("release", rec["subject_id"].split(":")[1]),
             "task": rec["task"],
+            "session": rec.get("session", 1),
+            "trial": rec.get("trial", 1),
+            "age_bracket": rec.get("age_bracket"),
+            "hand": rec.get("hand"),
+            "device": rec.get("device"),
+
             "fs_raw": rec["fs"],
-            # fs_raw is here so the leakage check can see it. It is NOT a feature
+            # Here so the confound check can see it. NOT a feature
+
             "n_raw": len(rec["t"]),
             **f,
         })
-    for sid, why in skipped:
-        print(f"  SKIPPED {sid}: {why}")
+
+    for sid, trial, why in skipped:
+        print(f"  SKIPPED {sid} trial {trial}: {why}")
     return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":
-    root = sys.argv[1]
-    out = sys.argv[2] if len(sys.argv) > 2 else "features_uci395.csv"
-    df = build(root)
-    df.to_csv(out, index=False)
-    print(f"{len(df)} rows -> {out}")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("root")
+    ap.add_argument("out")
+    ap.add_argument("--source", choices=("uci", "collected"), default="uci")
+    args = ap.parse_args()
+
+    records = iter_uci(args.root) if args.source == "uci" else iter_collected(args.root)
+    df = build(records)
+    df.to_csv(args.out, index=False)
+    print(f"{len(df)} rows -> {args.out}")
     print(df.groupby(["release", "label"]).size())

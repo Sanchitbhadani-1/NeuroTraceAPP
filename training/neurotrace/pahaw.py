@@ -78,6 +78,8 @@ def iter_svc(root, task_id=None):
     root = Path(root)
     for path in sorted(root.rglob("*.svc")):
         m = _NAME.match(path.name)
+        if not m:
+            continue
         if task_id is not None and (not m or int(m["task"]) != task_id):
             continue
         yield path
