@@ -118,6 +118,8 @@ export const HISTORY_EMPTY = "Your results will appear here after your first che
 export const DRAW_INSTRUCTION =
   "Start at the blue dot and follow the grey line outwards, at a comfortable pace. Lifting your " +
   "finger is fine — carry on from where you stopped.";
+export const TOO_SHORT =
+  "That spiral was too short to measure. Please draw the whole spiral, from the middle to the outside.";
 export const COLLECT_INTRO =
   "Three spirals per participant, for the device-matched reference. No results are calculated or " +
   "shown in this mode.";
@@ -135,3 +137,8 @@ export const SESSION_SAVED =
 // results-error copy. The old follow-on about going back to replay the
 // drawing is dropped - there is no replay screen any more.
 export const NOTHING_SCORED = "Nothing was scored.";
+
+// Draw screen, when a resize wipes the trial (not in any mockup): worded in
+// the task plan for the pad's resize guard. An instruction about the screen,
+// nothing about the person, so no ClaimsRules sentence applies.
+export const RESIZE_CLEARED = "The screen changed size, so this spiral was cleared. Please draw it again.";
