@@ -1,353 +1,548 @@
-// Week 1 skeleton: onboarding -> consent -> age gate -> spiral capture -> replay.
-// Trace shape matches schema/trace.schema.json — keep both in sync.
+// App shell: a hash router over the <section class="screen"> elements in
+// index.html, plus the setup screens (welcome -> consent -> about you, and
+// home). Drawing, results and collection mode plug into the same router.
+// Scoring lives in score.js, every sentence in copy.js, storage in store.js.
 
-const TURNS = 4;
-const STORAGE_KEY = "neurotrace:lastTrace";
-const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)").matches;
+import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "./nt-features.js";
+import { checkScoringFiles, scoreSession } from "./score.js";
+import * as copy from "./copy.js";
+import { getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment } from "./store.js";
+import { createPad, spiralPoints } from "./pad.js";
 
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// ---------- spiral art (the guide spiral itself is pad.js's spiralPoints) ----------
+
+// A believable hand-drawn line for the welcome and home art: the guide spiral
+// pushed in and out along its radius by a slow wobble plus a little jitter,
+// faded in over the first fifth so it starts on the centre. Same recipe as
+// the design canvas, so the art matches the mockups.
+function handDrawn(r1, turns, steps) {
+  return spiralPoints(0, r1, turns, steps).map(([x, y], i) => {
+    const p = i / steps;
+    const th = p * turns * 2 * Math.PI;
+    const wobble = 4 * (0.6 * Math.sin(th * 0.45 + 1.3) + 0.3 * Math.sin(th * 1.3 + 2.73) + 0.1 * Math.sin(th * 3.7 + 0.91));
+    const dr = (wobble + 0.4 * Math.sin(i * 2.39996)) * Math.min(1, p * 5);
+    return [x + dr * Math.cos(th), y + dr * Math.sin(th)];
+  });
 }
 
-function strokeGradient(ctx, w, h) {
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, cssVar("--accent"));
-  g.addColorStop(1, cssVar("--warm"));
-  return g;
+// ---------- brand mark and spiral art: drawn once on load ----------
+// Every piece of art is a 340 × 340 viewBox centred on (170, 170), the
+// geometry the design canvas used; CSS sets stroke widths per place.
+
+function drawArt() {
+  const art = {
+    mark: spiralPoints(0, 150, 2.25, 120),
+    "art-guide": spiralPoints(0, 150, 4, 720),
+    "art-trace": handDrawn(150, 4, 720),
+  };
+  for (const [cls, pts] of Object.entries(art)) {
+    const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${(170 + x).toFixed(1)} ${(170 + y).toFixed(1)}`).join("");
+    document.querySelectorAll(`path.${cls}`).forEach((path) => path.setAttribute("d", d));
+  }
 }
 
-// devicePixelRatio-aware canvas: backing store at full device resolution,
-// context scaled so every other coordinate in this file stays in CSS pixels.
-// The canvases live inside screens that start `hidden` (display:none), which
-// has no layout box, so this can't run once at load — call it again right
-// before a screen holding a canvas is revealed. setTransform (not scale)
-// keeps repeat calls idempotent instead of compounding.
-function fitCanvasToDisplay(canvas) {
+// ---------- scoring files ----------
+// Both files sit next to index.html. Loaded once, eagerly, so a mismatched or
+// missing model surfaces the moment anyone needs scoring. A model handed
+// numbers in positions its weights don't expect has no safe way to score, so
+// the router sends every scoring path to the error screen instead
+// (Global Constraint 4). Scoring code reads `const { model, reference } = await scoring`.
+
+async function fetchJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`couldn't load ${url} (HTTP ${res.status})`);
+  return res.json();
+}
+
+async function loadScoring() {
+  const [model, reference] = await Promise.all([fetchJson("model.json"), fetchJson("reference.json")]);
+  checkScoringFiles(model, reference, SPIRAL_FEATURE_ORDER);
+  const unnamed = SPIRAL_FEATURE_ORDER.filter((k) => !copy.MEASURES[k]);
+  if (unnamed.length) throw new Error(`copy.js MEASURES has no entry for: ${unnamed.join(", ")}.`);
+  return { model, reference };
+}
+
+let loadError = null;
+const scoring = loadScoring();
+scoring.catch((err) => {
+  loadError = err;
+  console.error("NeuroTrace: scoring files failed to load - nothing will be scored", err);
+});
+
+// ---------- session state (this page load only) ----------
+
+let choice = null;     // { ageChoice, bracket, hand } from About you - #draw needs it
+let current = null;    // the result being shown - #results needs it
+let collecting = null; // the collection session in progress - screens past #collect need it
+
+// ---------- router ----------
+// location.hash is "#<screen>[/<param>]", e.g. "#home" or "#results/12".
+
+let previous = null; // the screen shown before this one
+
+function resolve(name, param) {
+  const prefs = getPrefs();
+  const fallback = prefs.onboarded ? "home" : "welcome";
+  if (!name || !document.getElementById(`screen-${name}`)) return fallback;
+  if (name === "error") return loadError ? name : fallback;
+  // Collection mode is run by a facilitator, not the person on the personal
+  // consent flow, so it has its own gate.
+  if (name.startsWith("collect")) return name === "collect" || collecting ? name : "collect";
+  if (!prefs.consented && name !== "welcome" && name !== "consent") return "welcome";
+  if (name === "draw" && !choice) return "about";
+  if (name === "results" && !current && !param) return "home"; // #results/<id> loads from history
+  return name;
+}
+
+async function route() {
+  const hash = location.hash;
+  const [name, param] = hash.slice(1).split("/");
+  const target = resolve(name, param);
+  if (target !== name) return location.replace(`#${target}`); // fires hashchange -> route again
+
+  if (name === "draw" || name === "results") {
+    try {
+      await scoring;
+    } catch {
+      return location.replace("#error");
+    }
+    if (location.hash !== hash) return; // the user moved on while the files loaded
+  }
+  show(name, param);
+}
+
+// Per-screen setup, run each time the screen is shown.
+const onShow = {};
+
+function show(name, param) {
+  for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
+  const screen = document.getElementById(`screen-${name}`);
+  document.title = `${screen.dataset.title} — NeuroTrace`;
+  onShow[name]?.(param);
+  scrollTo(0, 0);
+  screen.querySelector("h1").focus({ preventScroll: true });
+  previous = name;
+}
+
+// ---------- consent ----------
+
+const consentBoxes = document.querySelectorAll('#screen-consent input[name="consent"]');
+const consentContinue = document.getElementById("consent-continue");
+const consentHelp = document.getElementById("consent-help");
+
+function syncConsent() {
+  const ready = [...consentBoxes].every((box) => box.checked);
+  consentContinue.disabled = !ready;
+  consentHelp.hidden = ready;
+}
+
+onShow.consent = () => {
+  const { consented } = getPrefs();
+  consentBoxes.forEach((box) => (box.checked = consented));
+  syncConsent();
+};
+document.getElementById("screen-consent").addEventListener("change", syncConsent);
+consentContinue.addEventListener("click", () => {
+  setPrefs({ consented: true, onboarded: true });
+  location.hash = "#about";
+});
+
+// ---------- about you ----------
+
+const aboutContinue = document.getElementById("about-continue");
+const checkedValue = (name) => document.querySelector(`#screen-about input[name="${name}"]:checked`)?.value;
+const syncAbout = () => (aboutContinue.disabled = !(checkedValue("age") && checkedValue("hand")));
+
+document.getElementById("age-choices").innerHTML = copy.AGE_CHOICES
+  .map(({ label }) => `<label class="chip"><input type="radio" name="age" value="${label}"><span>${label}</span></label>`)
+  .join("");
+
+onShow.about = () => {
+  const { ageChoice, hand } = getPrefs();
+  document.querySelectorAll('#screen-about input[name="age"]').forEach((r) => (r.checked = r.value === ageChoice));
+  document.querySelectorAll('#screen-about input[name="hand"]').forEach((r) => (r.checked = r.value === hand));
+  syncAbout();
+  // First run arrives from consent; a check-in started from home (or a
+  // reload) should go back home, not through consent again.
+  document.getElementById("about-back").href = previous === "consent" ? "#consent" : "#home";
+};
+document.getElementById("screen-about").addEventListener("change", syncAbout);
+aboutContinue.addEventListener("click", () => {
+  const ageChoice = checkedValue("age");
+  const hand = checkedValue("hand");
+  setPrefs({ ageChoice, hand });
+  choice = { ageChoice, bracket: copy.AGE_CHOICES.find((c) => c.label === ageChoice).bracket, hand };
+  location.hash = "#draw";
+});
+
+// ---------- draw ----------
+// One check-in is reference.trialsPerSession spirals, averaged - the user is
+// measured the same way the reference group was.
+
+const drawDone = document.getElementById("draw-done");
+const drawStatus = document.getElementById("draw-status");
+const drawSheet = document.getElementById("draw-pad").parentElement;
+let trials = []; // this check-in's finished spirals: { trace, strokeStarts, features }
+let trialsWanted = 1;
+
+const pad = createPad(document.getElementById("draw-pad"), {
+  onInk({ cleared }) {
+    drawDone.disabled = drawSheet.inert || !pad.hasInk();
+    showDrawStatus(cleared ? copy.RESIZE_CLEARED : null); // new ink makes an old message stale
+    if (cleared) pad.showStartDot(true);
+  },
+});
+
+// First sentence in bold, as in Draw.dc.html's too-short card.
+function showDrawStatus(sentence) {
+  drawStatus.hidden = !sentence;
+  if (!sentence) return;
+  const cut = sentence.indexOf(".") + 1;
+  drawStatus.querySelector("strong").textContent = sentence.slice(0, cut);
+  drawStatus.querySelector("strong + span").textContent = sentence.slice(cut);
+}
+
+function newTrial() {
+  const n = trials.length + 1;
+  document.getElementById("draw-count").textContent = `Spiral ${n} of ${trialsWanted}`;
+  const progress = document.getElementById("draw-progress");
+  progress.innerHTML = Array.from({ length: trialsWanted }, (_, i) => (i < n ? '<span class="on"></span>' : "<span></span>")).join("");
+  progress.setAttribute("aria-valuemax", trialsWanted);
+  progress.setAttribute("aria-valuenow", trials.length);
+  progress.setAttribute("aria-valuetext", `${trials.length} of ${trialsWanted}`);
+  pad.reset();
+  pad.showStartDot(true);
+  drawSheet.inert = false;
+  drawDone.disabled = true;
+  showDrawStatus(null);
+}
+
+onShow.draw = async () => {
+  const { reference } = await scoring;
+  trialsWanted = reference.trialsPerSession;
+  trials = [];
+  newTrial();
+};
+
+document.getElementById("draw-restart").addEventListener("click", newTrial); // this trial only
+
+drawDone.addEventListener("click", async () => {
+  const trace = pad.trace(choice.hand);
+  let features;
+  try {
+    features = featuresFromTrace(trace);
+  } catch {
+    return showDrawStatus(copy.TOO_SHORT); // the ink stays so they can see what happened
+  }
+  trials.push({ trace, strokeStarts: pad.strokeStarts(), features });
+  if (trials.length < trialsWanted) return newTrial();
+
+  // Scoring and saving are async: lock the pad so no new ink can reach
+  // onInk and re-enable Done for a second trial or a second record.
+  drawDone.disabled = true;
+  drawSheet.inert = true;
+  const { model, reference } = await scoring;
+  const result = scoreSession(trials.map((t) => t.features), model, reference, choice.bracket);
+  const record = {
+    ts: Date.now(),
+    task: "spiral",
+    hand: choice.hand,
+    ageChoice: choice.ageChoice,
+    bracketChoice: choice.bracket,
+    inputType: trials[0].trace.inputType,
+    deviceLabel: trials[0].trace.deviceLabel,
+    trials: trials.map(({ trace, strokeStarts, features }) => ({ samples: trace.samples, strokeStarts, features })),
+    features: result.features,
+    result,
+  };
+  try {
+    await saveAssessment(record);
+  } catch (err) {
+    console.warn("NeuroTrace: couldn't save this check-in to history", err); // still show the result
+  }
+  current = record;
+  location.hash = "#results";
+});
+
+// ---------- results ----------
+// Renders a stored record, never a live computation: a check-in reopened from
+// history reads exactly as it did the day it was made (Ruling 7). Nothing
+// here may put result.score or result.scorePct on screen (Constraint 2).
+
+const $ = (id) => document.getElementById(id);
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+const card = (title, ...children) => {
+  const c = el("section", "card result-card");
+  c.append(el("h2", null, title), ...children);
+  return c;
+};
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const whenFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+function measureRow(key, frac) {
+  const row = el("div", "measure");
+  const track = el("div", "track");
+  track.setAttribute("aria-hidden", "true"); // the sentence is the content; the dot is a second reading
+  const dot = el("span", "track-dot");
+  dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
+  track.append(dot);
+  row.append(el("span", "measure-name", copy.MEASURES[key].name), el("span", "sub", copy.measureSentence(key, frac)), track);
+  return row;
+}
+
+function levels(tier) {
+  const wrap = el("div", "levels");
+  wrap.setAttribute("role", "img");
+  wrap.setAttribute("aria-label", `Result level: ${copy.TIER_SHORT[tier]}, ${tier + 1} of 3`);
+  copy.TIER_SHORT.forEach((label, i) => {
+    const step = el("span", i === tier ? "level on" : "level");
+    step.append(el("span", "level-bar"), el("span", "level-label", label));
+    wrap.append(step);
+  });
+  return wrap;
+}
+
+let drawing = null; // { canvas, prepared } for the replay button and theme redraws
+
+function renderResults(rec) {
+  const { result } = rec;
+  const tier = copy.TIERS[result.tier];
+  $("results-meta").textContent = `Spiral check-in · ${whenFmt.format(rec.ts)}`;
+  $("results-title").textContent = tier.label;
+
+  const shown = (key) => key in result.measurePct;
+  const stoodOut = card("What stood out", el("p", "sub", copy.STOOD_OUT_CAPTION),
+    ...result.topSignals.filter(shown).map((k) => measureRow(k, result.measurePct[k])));
+
+  const every = card("Every measure", el("p", "sub", copy.EVERY_MEASURE_CAPTION));
+  const scale = el("div", "scale-labels");
+  scale.setAttribute("aria-hidden", "true");
+  scale.append(el("span", null, "Lowest"), el("span", null, "Halfway"), el("span", null, "Highest"));
+  every.append(scale);
+  for (const g of copy.GROUPS) {
+    const keys = SPIRAL_FEATURE_ORDER.filter((k) => copy.MEASURES[k].group === g.id && shown(k));
+    if (!keys.length) continue;
+    const group = el("div", "measure-group");
+    group.append(el("h3", null, g.title), el("p", "sub", g.desc), ...keys.map((k) => measureRow(k, result.measurePct[k])));
+    every.append(group);
+  }
+
+  $("results-body").replaceChildren(
+    el("p", "summary", copy.RESULT_SUMMARY),
+    levels(result.tier),
+    el("p", "sub reference", copy.referenceSentence(result)),
+    card("What this means", ...tier.meaning.map((p) => el("p", null, p))),
+    stoodOut,
+    card("What you can do", el("p", null, tier.todo)),
+    drawingCard(rec),
+    every,
+  );
+}
+
+// ---------- your drawing: raw vs filtered, replay, speed ----------
+
+function drawingCard(rec) {
+  // ponytail: shows the first spiral only; add a spiral picker when trialsPerSession > 1 ships.
+  const trial = rec.trials?.[0];
+  drawing = null;
+  if (!trial?.samples) return card("Your drawing", el("p", "sub", copy.DRAWING_PRUNED));
+
+  const canvas = el("canvas", "drawing");
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", "Your recorded line drawn under the smoothed version the measures are taken from");
+  const legend = el("div", "legend");
+  for (const [cls, text] of [["swatch-raw", copy.RAW_LEGEND], ["swatch-filtered", copy.FILTERED_LEGEND]]) {
+    const row = el("div", "legend-row");
+    row.append(el("span", `swatch ${cls}`), el("span", null, text));
+    legend.append(row);
+  }
+  const replay = el("button", "btn btn-secondary btn-compact");
+  replay.type = "button";
+  replay.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>Replay drawing';
+  const speed = el("canvas", "speed");
+  speed.setAttribute("role", "img");
+  speed.setAttribute("aria-label", "Drawing speed over time");
+
+  let prepared;
+  try {
+    prepared = prepareDrawing(trial);
+  } catch (err) {
+    console.warn("NeuroTrace: couldn't prepare the drawing", err);
+    return card("Your drawing", el("p", "sub", copy.DRAWING_PRUNED));
+  }
+  drawing = { canvas, speed, prepared };
+  replay.addEventListener("click", () => replayDrawing(drawing));
+  // Painted once the card is in the document and has a size.
+  requestAnimationFrame(() => paintDrawing(drawing));
+  return card("Your drawing", canvas, legend, replay, el("hr"),
+    el("h3", null, "Speed along the line"), el("p", "sub", copy.SPEED_CAPTION), speed);
+}
+
+// Both lines go through normalize() - the centre-and-scale preprocessTrace
+// applies - so they share one space and the only visible difference is the
+// trimming, resampling and 15 Hz low-pass.
+function prepareDrawing({ samples, strokeStarts }) {
+  const t = Float64Array.from(samples, (s) => s.t);
+  const x = Float64Array.from(samples, (s) => s.x);
+  const y = Float64Array.from(samples, (s) => s.y);
+  const raw = normalize(x, y);
+  const filtered = preprocessTrace(t, x, y).slice(1);
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [px, py] of [raw, filtered]) {
+    for (let i = 0; i < px.length; i++) {
+      if (px[i] < minX) minX = px[i];
+      if (px[i] > maxX) maxX = px[i];
+      if (py[i] < minY) minY = py[i];
+      if (py[i] > maxY) maxY = py[i];
+    }
+  }
+  const starts = new Set(strokeStarts ?? [0]);
+  // Speed between neighbouring samples of the same stroke - a pen lift is not motion.
+  const speeds = [];
+  for (let i = 1; i < samples.length; i++) {
+    const dt = samples[i].t - samples[i - 1].t;
+    if (starts.has(i) || dt <= 0) continue;
+    speeds.push(Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y) / dt);
+  }
+  return { t, raw, filtered, starts, speeds, box: { minX, maxX, minY, maxY } };
+}
+
+function fitCanvas(canvas) {
   const dpr = window.devicePixelRatio || 1;
   const { width, height } = canvas.getBoundingClientRect();
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
-  canvas.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { width, height };
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: width, h: height };
 }
 
-// ---------- spiral math, shared by the brand mark (SVG) and the capture guide (canvas) ----------
-
-function spiralPoints(r0, r1, turns, steps) {
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const p = i / steps;
-    const theta = p * turns * 2 * Math.PI;
-    const r = r0 + p * (r1 - r0);
-    pts.push([r * Math.cos(theta), r * Math.sin(theta)]);
-  }
-  return pts;
-}
-
-// ---------- brand mark: draw the actual spiral shape once on load ----------
-
-function initBrandMark() {
-  const path = document.getElementById("brand-spiral");
-  if (!path) return;
-  const cx = 17, cy = 17;
-  const d = spiralPoints(3, 15, 2.2, 60)
-    .map(([x, y], i) => (i === 0 ? "M" : "L") + (cx + x).toFixed(2) + "," + (cy + y).toFixed(2))
-    .join(" ");
-  path.setAttribute("d", d);
-
-  const len = path.getTotalLength();
-  path.style.strokeDasharray = len;
-  if (REDUCED_MOTION) return; // fully drawn, no animation
-  path.style.strokeDashoffset = len;
-  requestAnimationFrame(() => {
-    path.style.transition = "stroke-dashoffset 1100ms cubic-bezier(0.22,1,0.36,1) 120ms";
-    path.style.strokeDashoffset = 0;
-  });
-}
-
-// ---------- routing ----------
-
-const STEP_ORDER = ["screen-onboarding", "screen-consent", "screen-agegate", "screen-capture", "screen-replay"];
-
-function updateSteps(id) {
-  const activeIndex = STEP_ORDER.indexOf(id);
-  const dots = document.querySelectorAll("#steps span");
-  dots.forEach((dot, i) => dot.classList.toggle("done", i <= activeIndex));
-  document.getElementById("steps").setAttribute("aria-valuenow", activeIndex + 1);
-}
-
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach((s) => (s.hidden = s.id !== id));
-  updateSteps(id);
-  if (id === "screen-capture") {
-    ({ width: captureW, height: captureH } = fitCanvasToDisplay(captureCanvas));
-    resetCapture(); // (re)draw the guide now that the canvas has a real size
-  }
-  if (id === "screen-replay") {
-    ({ width: replayW, height: replayH } = fitCanvasToDisplay(replayCanvas));
-    ({ width: speedW, height: speedH } = fitCanvasToDisplay(speedCanvas));
-    startReplay(!REDUCED_MOTION); // auto-play on arrival: motion only if they didn't opt out
-  }
-}
-
-document.querySelectorAll("[data-next]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    if (btn.disabled) return;
-    showScreen(btn.dataset.next);
-  });
-});
-
-document.querySelectorAll("[data-back]").forEach((btn) => {
-  btn.addEventListener("click", () => showScreen(btn.dataset.back));
-});
-
-function wireCheckToggle(checkboxId, buttonId) {
-  const checkbox = document.getElementById(checkboxId);
-  const button = document.getElementById(buttonId);
-  checkbox.addEventListener("change", () => {
-    button.disabled = !checkbox.checked;
-  });
-}
-wireCheckToggle("consent-check", "consent-continue");
-wireCheckToggle("agegate-check", "agegate-continue");
-
-// ---------- spiral guide ----------
-
-function drawSpiralGuide(ctx, w, h) {
-  const cx = w / 2;
-  const cy = h / 2;
-  const maxR = Math.min(w, h) / 2 - 20;
+function strokeLine(ctx, [px, py], map, n, starts, style, width) {
   ctx.save();
-  ctx.strokeStyle = `color-mix(in srgb, ${cssVar("--ink")} 22%, transparent)`;
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = style;
+  ctx.lineWidth = width;
+  ctx.lineCap = ctx.lineJoin = "round";
   ctx.beginPath();
-  spiralPoints(0, maxR, TURNS, 1000).forEach(([x, y], i) => {
-    if (i === 0) ctx.moveTo(cx + x, cy + y);
-    else ctx.lineTo(cx + x, cy + y);
-  });
+  for (let i = 0; i < n; i++) {
+    const [X, Y] = map(px[i], py[i]);
+    if (i === 0 || starts?.has(i)) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+  }
   ctx.stroke();
   ctx.restore();
 }
 
-// ---------- capture ----------
-
-const captureCanvas = document.getElementById("capture-canvas");
-const captureCtx = captureCanvas.getContext("2d");
-let captureW = 0, captureH = 0; // real values set by fitCanvasToDisplay when screen-capture is shown
-const replayBtn = document.getElementById("replay-btn");
-const clearBtn = document.getElementById("clear-btn");
-
-let samples = [];
-let strokeStartTime = null;
-let capturing = false;
-
-function canvasPoint(canvas, clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
-  return { x: clientX - rect.left, y: clientY - rect.top };
+// upTo: seconds of the raw line to draw; the smoothed line appears once it is all drawn.
+function paintDrawing(d, upTo = Infinity) {
+  if (!d?.canvas.isConnected) return;
+  const { ctx, w, h } = fitCanvas(d.canvas);
+  const { raw, filtered, t, starts, box } = d.prepared;
+  const pad = 16;
+  const s = Math.min((w - 2 * pad) / (box.maxX - box.minX || 1), (h - 2 * pad) / (box.maxY - box.minY || 1));
+  const ox = w / 2 - s * (box.minX + box.maxX) / 2, oy = h / 2 - s * (box.minY + box.maxY) / 2;
+  const map = (x, y) => [ox + s * x, oy + s * y];
+  let n = raw[0].length;
+  if (upTo < Infinity) { n = 0; while (n < t.length && t[n] <= upTo) n++; }
+  ctx.globalAlpha = 0.55;
+  strokeLine(ctx, raw, map, n, starts, cssVar("--ink2"), 1.5);
+  ctx.globalAlpha = 1;
+  if (n === raw[0].length) strokeLine(ctx, filtered, map, filtered[0].length, null, cssVar("--accent"), 3);
+  if (upTo === Infinity) paintSpeed(d);
 }
 
-function mapInputType(pointerType) {
-  return pointerType === "pen" ? "pencil" : pointerType; // matches schema enum
+function paintSpeed({ speed, prepared: { speeds } }) {
+  const { ctx, w, h } = fitCanvas(speed);
+  if (speeds.length < 2) return;
+  let top = 1;
+  for (const v of speeds) if (v > top) top = v; // no Math.max(...arr) on long traces (Constraint 6)
+  const X = (i) => (i / (speeds.length - 1)) * w, Y = (v) => h - 4 - (v / top) * (h - 8);
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  speeds.forEach((v, i) => ctx.lineTo(X(i), Y(v)));
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.fillStyle = cssVar("--accent-soft");
+  ctx.fill();
+  ctx.beginPath();
+  speeds.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v))));
+  ctx.strokeStyle = cssVar("--accent");
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.stroke();
 }
 
-const savedBadge = document.getElementById("saved-badge");
-let savedBadgeTimer = null;
-
-function flashSavedBadge() {
-  clearTimeout(savedBadgeTimer);
-  savedBadge.classList.add("show");
-  savedBadgeTimer = setTimeout(() => savedBadge.classList.remove("show"), 2200);
-}
-
-function resetCapture() {
-  captureCtx.clearRect(0, 0, captureW, captureH);
-  drawSpiralGuide(captureCtx, captureW, captureH);
-  samples = [];
-  replayBtn.disabled = true;
-  savedBadge.classList.remove("show");
-}
-
-function addSample(ev) {
-  const p = canvasPoint(captureCanvas, ev.clientX, ev.clientY);
-  const sample = {
-    t: (ev.timeStamp - strokeStartTime) / 1000,
-    x: p.x,
-    y: p.y,
-    pressure: ev.pressure || 0,
-    tiltX: ev.tiltX || 0,
-    tiltY: ev.tiltY || 0,
-  };
-  samples.push(sample);
-  return sample;
-}
-
-captureCanvas.addEventListener("pointerdown", (ev) => {
-  resetCapture(); // starting a new stroke discards any earlier one, on screen and in samples
-  captureCanvas.setPointerCapture(ev.pointerId);
-  capturing = true;
-  strokeStartTime = ev.timeStamp;
-  const s = addSample(ev);
-  captureCtx.beginPath();
-  captureCtx.moveTo(s.x, s.y);
-  captureCtx.strokeStyle = strokeGradient(captureCtx, captureW, captureH);
-  captureCtx.lineWidth = 3;
-  captureCtx.lineCap = "round";
-});
-
-captureCanvas.addEventListener("pointermove", (ev) => {
-  if (!capturing) return;
-  // Chrome hands back the full sub-frame history; some browsers hand back an
-  // empty list, which would drop every move sample and leave Replay disabled.
-  const batch = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
-  for (const coalesced of batch.length ? batch : [ev]) {
-    const s = addSample(coalesced);
-    captureCtx.lineTo(s.x, s.y);
-  }
-  captureCtx.stroke();
-});
-
-function endCapture(ev) {
-  if (!capturing) return;
-  capturing = false;
-  if (samples.length >= 2 && saveTrace(mapInputType(ev.pointerType))) {
-    replayBtn.disabled = false;
-    flashSavedBadge();
-  }
-}
-captureCanvas.addEventListener("pointerup", endCapture);
-captureCanvas.addEventListener("pointercancel", endCapture);
-
-clearBtn.addEventListener("click", resetCapture);
-
-// ---------- save (schema/trace.schema.json) ----------
-
-function saveTrace(inputType) {
-  const trace = {
-    task: "spiral",
-    hand: "right", // no hand-select UI yet — week 2 adds per-hand tasks
-    inputType,
-    deviceLabel: navigator.platform || "unknown", // a coarse hint, not the fingerprint-y full UA string
-    samples,
-  };
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trace));
-    return true;
-  } catch (err) {
-    console.warn("NeuroTrace: couldn't save trace (storage full or unavailable)", err);
-    return false;
-  }
-}
-
-function loadTrace() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    console.warn("NeuroTrace: couldn't read saved trace", err);
-    return null;
-  }
-}
-
-// ---------- replay ----------
-
-const replayCanvas = document.getElementById("replay-canvas");
-const replayCtx = replayCanvas.getContext("2d");
-let replayW = 0, replayH = 0;
-const speedCanvas = document.getElementById("speed-canvas");
-const speedCtx = speedCanvas.getContext("2d");
-let speedW = 0, speedH = 0;
-let replayFrame = null;
-const replayAgainBtn = document.getElementById("replay-again-btn");
-
-function drawSpeedGraph(trace) {
-  const w = speedW;
-  const h = speedH;
-  speedCtx.clearRect(0, 0, w, h);
-  const pts = trace.samples;
-  if (pts.length < 2) return;
-
-  const speeds = [];
-  for (let i = 1; i < pts.length; i++) {
-    const dt = pts[i].t - pts[i - 1].t;
-    const dx = pts[i].x - pts[i - 1].x;
-    const dy = pts[i].y - pts[i - 1].y;
-    speeds.push(dt > 0 ? Math.hypot(dx, dy) / dt : 0);
-  }
-  if (speeds.length < 2) return; // one segment isn't a graph — avoid a /0 below
-  const maxSpeed = Math.max(...speeds, 1);
-  const coords = speeds.map((s, i) => [(i / (speeds.length - 1)) * w, h - (s / maxSpeed) * h]);
-
-  const fill = speedCtx.createLinearGradient(0, 0, 0, h);
-  fill.addColorStop(0, cssVar("--accent-soft"));
-  fill.addColorStop(1, "transparent");
-  speedCtx.fillStyle = fill;
-  speedCtx.beginPath();
-  speedCtx.moveTo(coords[0][0], h);
-  coords.forEach(([x, y]) => speedCtx.lineTo(x, y));
-  speedCtx.lineTo(coords[coords.length - 1][0], h);
-  speedCtx.closePath();
-  speedCtx.fill();
-
-  speedCtx.strokeStyle = cssVar("--accent");
-  speedCtx.lineWidth = 2;
-  speedCtx.beginPath();
-  coords.forEach(([x, y], i) => (i === 0 ? speedCtx.moveTo(x, y) : speedCtx.lineTo(x, y)));
-  speedCtx.stroke();
-}
-
-// `animate` is the user explicitly asking to watch the stroke redraw (Play
-// again). Landing on the screen replays by itself, so that one honours
-// prefers-reduced-motion and paints the finished trace in a single frame.
-function playReplay(trace, animate) {
-  cancelAnimationFrame(replayFrame); // don't leave an older loop drawing over this one
-  replayCtx.clearRect(0, 0, replayW, replayH);
-  drawSpiralGuide(replayCtx, replayW, replayH);
-  const pts = trace.samples;
-  if (!pts.length) return;
-
-  replayCtx.strokeStyle = strokeGradient(replayCtx, replayW, replayH);
-  replayCtx.lineWidth = 3;
-  replayCtx.lineCap = "round";
-
-  function drawSegment(i) {
-    replayCtx.beginPath();
-    replayCtx.moveTo(pts[i - 1].x, pts[i - 1].y);
-    replayCtx.lineTo(pts[i].x, pts[i].y);
-    replayCtx.stroke();
-  }
-
-  if (!animate) {
-    for (let i = 1; i < pts.length; i++) drawSegment(i);
-    return;
-  }
-
+// Always animates: the person asked for it with a button (Constraint 8).
+function replayDrawing(d) {
+  cancelAnimationFrame(d.frame);
+  const end = d.prepared.t[d.prepared.t.length - 1];
   const start = performance.now();
-  let i = 1;
-  function step(now) {
+  const step = (now) => {
     const elapsed = (now - start) / 1000;
-    while (i < pts.length && pts[i].t <= elapsed) {
-      drawSegment(i);
-      i++;
-    }
-    if (i < pts.length) replayFrame = requestAnimationFrame(step);
-  }
-  replayFrame = requestAnimationFrame(step);
+    paintDrawing(d, elapsed >= end ? Infinity : elapsed);
+    if (elapsed < end) d.frame = requestAnimationFrame(step);
+  };
+  d.frame = requestAnimationFrame(step);
 }
 
-function startReplay(animate) {
-  const trace = loadTrace();
-  if (!trace || !trace.samples || trace.samples.length < 2) {
-    // silent return here is what makes a dead Play again button impossible to debug
-    console.warn("NeuroTrace: no replayable trace saved — capture a spiral first");
-    return;
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => paintDrawing(drawing));
+
+onShow.results = async (id) => {
+  if (id) {
+    const rec = await getAssessment(Number(id)).catch(() => null);
+    if (!rec?.result) return location.replace("#home");
+    current = rec;
   }
-  drawSpeedGraph(trace);
-  playReplay(trace, animate);
+  renderResults(current);
+  $("results-title").focus({ preventScroll: true });
+};
+
+// ---------- home: history ----------
+
+function historyWhen(ts) {
+  const d = new Date(ts), today = new Date();
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const days = Math.round((new Date(today.toDateString()) - new Date(d.toDateString())) / 864e5);
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  return `${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}, ${time}`;
 }
-replayAgainBtn.addEventListener("click", () => startReplay(true));
+
+onShow.home = async () => {
+  const records = await listAssessments().catch((err) => {
+    console.warn("NeuroTrace: couldn't read history", err);
+    return [];
+  });
+  if (!records.length) return; // index.html's empty state stays
+  const list = el("div", "card history-list");
+  for (const rec of records) {
+    const row = el("a", "history-row");
+    row.href = `#results/${rec.id}`;
+    const text = el("span", "history-text");
+    text.append(el("span", "history-when", historyWhen(rec.ts)), el("span", "sub", copy.TIERS[rec.result.tier].label));
+    row.append(text);
+    row.insertAdjacentHTML("beforeend", '<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
+    list.append(row);
+  }
+  $("history").replaceChildren(list);
+};
+
+// ---------- error ----------
+
+onShow.error = () => {
+  document.getElementById("error-message").textContent = loadError.message;
+};
 
 // ---------- init ----------
-// (capture/replay canvases are sized lazily in showScreen — they start
-// inside `hidden` screens, which have no layout box to measure yet)
 
-initBrandMark();
+// data-copy="KEY [KEY …]" -> the copy.js sentences, joined with a space.
+document.querySelectorAll("[data-copy]").forEach((el) => {
+  el.textContent = el.dataset.copy.split(" ").map((key) => copy[key]).join(" ");
+});
+drawArt();
+addEventListener("hashchange", route);
+route();

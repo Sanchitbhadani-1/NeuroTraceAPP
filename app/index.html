@@ -2,92 +2,271 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="NeuroTrace">
+  <meta name="description" content="NeuroTrace turns an ordinary phone into a motor-function measurement tool.">
   <title>NeuroTrace</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
 </head>
 <body>
-  <div class="ambient" aria-hidden="true"></div>
+<!-- One <section class="screen"> per route (#welcome, #home, ...); app.js
+     shows one at a time. Full sentences are filled in from copy.js through
+     data-copy (Global Constraint 10); the markup holds only headings and
+     control labels. -->
 
-  <div class="page">
-    <div class="brand">
-      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-        <path class="brand-path" id="brand-spiral" />
-      </svg>
-      <span class="brand-name">NeuroTrace</span>
-    </div>
+<!-- ================= personal check-in (iPhone first) ================= -->
 
-    <div class="steps" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="steps">
-      <span class="done"></span><span></span><span></span><span></span><span></span>
-    </div>
-
-    <section id="screen-onboarding" class="screen" data-step="1">
-      <h1>Measure how you move.</h1>
-      <p>NeuroTrace turns an ordinary phone into a motor-function measurement tool.</p>
-      <p>Machine learning models trained on clinical movement-disorder datasets extract motor
-         features that clinicians look for in Parkinson's disease.</p>
-      <p><strong>These are measurements of how you moved during a few short tasks, compared with
-         other people who took the same tasks. They are not a diagnosis and cannot tell you whether
-         you have a neurological condition.</strong></p>
-      <div class="nav-row">
-        <button class="primary" data-next="screen-consent">Continue</button>
-      </div>
-    </section>
-
-    <section id="screen-consent" class="screen" data-step="2" hidden>
-      <h1>Before you start</h1>
-      <p>All analysis runs on the device. No motor data ever leaves the phone unless you separately
-         choose to contribute it, which is off by default.</p>
-      <label class="check-row">
-        <input type="checkbox" id="consent-check">
-        I understand this is a measurement tool, not a medical diagnosis.
-      </label>
-      <div class="nav-row">
-        <button data-back="screen-onboarding">Back</button>
-        <button class="primary" id="consent-continue" data-next="screen-agegate" disabled>Continue</button>
-      </div>
-    </section>
-
-    <section id="screen-agegate" class="screen" data-step="3" hidden>
-      <h1>One more thing</h1>
-      <label class="check-row">
-        <input type="checkbox" id="agegate-check">
-        I am 18 years of age or older.
-      </label>
-      <div class="nav-row">
-        <button data-back="screen-consent">Back</button>
-        <button class="primary" id="agegate-continue" data-next="screen-capture" disabled>Continue</button>
-      </div>
-    </section>
-
-    <section id="screen-capture" class="screen" data-step="4" hidden>
-      <h1>Spiral trace</h1>
-      <p>Draw the spiral once, following the guide, at a comfortable pace.</p>
-      <div class="canvas-wrap">
-        <canvas id="capture-canvas" width="600" height="600"></canvas>
-        <div class="saved-badge" id="saved-badge">
-          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4"/></svg>
-          Saved
-        </div>
-      </div>
-      <div class="nav-row">
-        <button data-back="screen-onboarding">Start over</button>
-        <button id="clear-btn">Clear</button>
-        <button class="primary" id="replay-btn" data-next="screen-replay" disabled>Replay</button>
-      </div>
-    </section>
-
-    <section id="screen-replay" class="screen" data-step="5" hidden>
-      <h1>Replay</h1>
-      <canvas id="replay-canvas" width="600" height="600"></canvas>
-      <canvas id="speed-canvas" width="600" height="150"></canvas>
-      <div class="nav-row">
-        <button class="primary" id="replay-again-btn">Play again</button>
-        <button data-back="screen-capture">Back to capture</button>
-      </div>
-    </section>
+<section class="screen" id="screen-welcome" data-title="Welcome" hidden>
+  <header class="brand">
+    <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
+    <span class="brand-name">NeuroTrace</span>
+  </header>
+  <div class="hero">
+    <svg viewBox="0 0 340 340" role="img" aria-label="A spiral traced by hand over the on-screen guide">
+      <path class="art-guide"/>
+      <path class="art-trace draw-in" pathLength="1"/>
+    </svg>
   </div>
+  <h1 tabindex="-1">Measure how you move.</h1>
+  <p class="lede" data-copy="PITCH TRACKS"></p>
+  <div class="actions">
+    <p class="lock">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      <span data-copy="ON_DEVICE"></span>
+    </p>
+    <a class="btn btn-primary" href="#consent">Get started</a>
+  </div>
+</section>
 
-  <script src="app.js"></script>
+<section class="screen" id="screen-consent" data-title="Before you start" hidden>
+  <div class="bar">
+    <a class="back" href="#welcome"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+    <div class="segments" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" aria-valuetext="Step 1 of 3">
+      <span class="on"></span><span></span><span></span>
+    </div>
+  </div>
+  <h1 tabindex="-1">Before you start</h1>
+  <div class="card notice">
+    <p data-copy="NOT_A_DIAGNOSIS"></p>
+    <p class="sub" data-copy="MANY_THINGS_SHORT"></p>
+  </div>
+  <div class="card checks">
+    <label class="check"><input type="checkbox" name="consent"><span data-copy="CONSENT_UNDERSTAND"></span></label>
+    <label class="check"><input type="checkbox" name="consent"><span data-copy="CONSENT_ADULT"></span></label>
+  </div>
+  <div class="actions">
+    <p class="sub center" id="consent-help" data-copy="CONSENT_HELP"></p>
+    <button type="button" class="btn btn-primary" id="consent-continue" disabled>Continue</button>
+  </div>
+</section>
+
+<section class="screen" id="screen-about" data-title="About you" hidden>
+  <div class="bar">
+    <a class="back" id="about-back" href="#consent"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+    <div class="segments" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="3" aria-valuenow="2" aria-valuetext="Step 2 of 3">
+      <span class="on"></span><span class="on"></span><span></span>
+    </div>
+  </div>
+  <h1 tabindex="-1">About you</h1>
+  <p class="lede" data-copy="ABOUT_WHY"></p>
+  <fieldset>
+    <legend>Your age</legend>
+    <div class="chips" id="age-choices"><!-- one chip per copy.AGE_CHOICES, from app.js --></div>
+  </fieldset>
+  <fieldset aria-describedby="hand-help">
+    <legend>Drawing hand</legend>
+    <div class="chips">
+      <label class="chip"><input type="radio" name="hand" value="left"><span>Left hand</span></label>
+      <label class="chip"><input type="radio" name="hand" value="right"><span>Right hand</span></label>
+    </div>
+  </fieldset>
+  <p class="sub" id="hand-help" data-copy="HAND_HELP"></p>
+  <div class="actions">
+    <button type="button" class="btn btn-primary" id="about-continue" disabled>Continue</button>
+  </div>
+</section>
+
+<section class="screen" id="screen-draw" data-title="Trace the spiral" hidden>
+  <div class="bar">
+    <a class="bar-link" href="#home">Cancel</a>
+    <div class="bar-title" id="draw-count">Spiral 1 of 1</div>
+  </div>
+  <div class="segments" id="draw-progress" role="progressbar" aria-label="Spirals drawn" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
+    <span class="on"></span>
+  </div>
+  <h1 tabindex="-1">Trace the spiral</h1>
+  <p class="lede" data-copy="DRAW_INSTRUCTION"></p>
+  <div class="pad"><canvas id="draw-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas></div>
+  <div role="status">
+    <p class="card status" id="draw-status" hidden>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/></svg>
+      <span><strong></strong><span></span></span>
+    </p>
+  </div>
+  <div class="actions pair">
+    <button type="button" class="btn btn-secondary" id="draw-restart">Start over</button>
+    <button type="button" class="btn btn-primary" id="draw-done" disabled>Done</button>
+  </div>
+</section>
+
+<section class="screen" id="screen-results" data-title="Results" hidden>
+  <div class="meta-row">
+    <span class="sub" id="results-meta"></span>
+    <a class="bar-link strong" href="#home">Done</a>
+  </div>
+  <h1 tabindex="-1" id="results-title"></h1>
+  <div id="results-body"></div>
+  <div class="actions pair">
+    <a class="btn btn-secondary" href="#about">Check again</a>
+    <a class="btn btn-primary" href="#home">Done</a>
+  </div>
+</section>
+
+<section class="screen" id="screen-home" data-title="Home" hidden>
+  <header class="brand">
+    <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
+    <span class="brand-name">NeuroTrace</span>
+  </header>
+  <div class="card checkin">
+    <div class="checkin-row">
+      <div>
+        <h1 tabindex="-1">Spiral check-in</h1>
+        <p class="lede" data-copy="CHECKIN_BLURB"></p>
+      </div>
+      <svg class="mini" viewBox="0 0 340 340" aria-hidden="true"><path class="art-guide"/><path class="art-trace"/></svg>
+    </div>
+    <a class="btn btn-primary" href="#about">Start a check-in</a>
+  </div>
+  <h2 class="section-title">Your check-ins</h2>
+  <div id="history">
+    <p class="card empty" data-copy="HISTORY_EMPTY"></p>
+  </div>
+  <div class="actions">
+    <p class="lock">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      <span data-copy="ON_DEVICE"></span>
+    </p>
+    <nav class="links">
+      <a href="#welcome">How NeuroTrace works</a>
+      <a href="#collect">Collection mode</a>
+    </nav>
+  </div>
+</section>
+
+<section class="screen" id="screen-error" data-title="Error" hidden>
+  <h1 tabindex="-1">We can't show results</h1>
+  <p class="lede" id="error-message"></p>
+  <p class="lede" data-copy="NOTHING_SCORED"></p>
+  <div class="actions">
+    <a class="btn btn-secondary" href="#home">Home</a>
+  </div>
+</section>
+
+<!-- ================= collection mode (facilitator, iPad) ================= -->
+
+<section class="screen collect-screen" id="screen-collect" data-title="Tester collection" hidden>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
+      <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
+    </div>
+    <a href="#home">Exit</a>
+  </header>
+  <div class="col">
+    <h1 tabindex="-1">Tester collection</h1>
+    <p class="lede" data-copy="COLLECT_INTRO"></p>
+    <div class="collect-grid">
+      <div class="card">
+        <h2>New participant</h2>
+        <p class="lede" data-copy="NEW_PARTICIPANT"></p>
+        <div class="id-box"><span class="id-label">Participant ID</span><span class="mono" id="collect-new-id"></span></div>
+        <button type="button" class="btn btn-primary" id="collect-start">Start session 1</button>
+      </div>
+      <div class="card">
+        <h2>Returning</h2>
+        <p class="lede" data-copy="RETURNING_BLURB"></p>
+        <div id="collect-returning"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="screen collect-screen" id="screen-collect-details" data-title="About the participant" hidden>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
+      <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
+    </div>
+    <a href="#home">Exit</a>
+  </header>
+  <div class="col">
+    <div class="meta-row">
+      <a class="back" href="#collect"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+      <span class="pill" id="details-session"></span>
+    </div>
+    <h1 tabindex="-1">About the participant</h1>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="details-begin" disabled>Begin spirals</button>
+    </div>
+  </div>
+</section>
+
+<section class="screen collect-screen" id="screen-collect-draw" data-title="Collection spiral" hidden>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
+      <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
+    </div>
+    <a href="#home">Exit</a>
+  </header>
+  <div class="col centred">
+    <div class="bar">
+      <a class="back" href="#collect-details"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+      <h1 tabindex="-1" class="bar-title" id="collect-count">Spiral 1 of 3</h1>
+      <span class="sub" id="collect-session"></span>
+    </div>
+    <div class="segments" id="collect-progress" role="progressbar" aria-label="Spirals drawn" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0">
+      <span class="on"></span><span></span><span></span>
+    </div>
+    <p class="lede" data-copy="COLLECT_DRAW_INSTRUCTION"></p>
+    <div class="pad"><canvas id="collect-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas></div>
+    <div class="actions pair">
+      <button type="button" class="btn btn-secondary" id="collect-redo">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7 7 0 1 0 1.6-7.3L4 10"/></svg>Redo this spiral
+      </button>
+      <button type="button" class="btn btn-primary" id="collect-next" disabled>Next spiral</button>
+    </div>
+  </div>
+</section>
+
+<section class="screen collect-screen" id="screen-collect-done" data-title="Session saved" hidden>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
+      <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
+    </div>
+    <a href="#home">Exit</a>
+  </header>
+  <div class="col centred">
+    <div class="done-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+    <h1 tabindex="-1">Session saved</h1>
+    <p class="lede" data-copy="SESSION_SAVED"></p>
+    <div id="done-summary"></div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="done-export">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>Export session
+      </button>
+      <a class="btn btn-secondary" href="#collect">Next participant</a>
+    </div>
+  </div>
+</section>
+
 </body>
 </html>
