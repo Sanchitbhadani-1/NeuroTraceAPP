@@ -334,6 +334,7 @@ function renderResults(rec) {
   }
 
   $("results-body").replaceChildren(
+    el("p", "summary", copy.RESULT_SUMMARY),
     levels(result.tier),
     el("p", "sub reference", copy.referenceSentence(result)),
     card("What this means", ...tier.meaning.map((p) => el("p", null, p))),
