@@ -181,12 +181,13 @@ aboutContinue.addEventListener("click", () => {
 
 const drawDone = document.getElementById("draw-done");
 const drawStatus = document.getElementById("draw-status");
+const drawSheet = document.getElementById("draw-pad").parentElement;
 let trials = []; // this check-in's finished spirals: { trace, strokeStarts, features }
 let trialsWanted = 1;
 
 const pad = createPad(document.getElementById("draw-pad"), {
   onInk({ cleared }) {
-    drawDone.disabled = !pad.hasInk();
+    drawDone.disabled = drawSheet.inert || !pad.hasInk();
     showDrawStatus(cleared ? copy.RESIZE_CLEARED : null); // new ink makes an old message stale
     if (cleared) pad.showStartDot(true);
   },
@@ -211,6 +212,7 @@ function newTrial() {
   progress.setAttribute("aria-valuetext", `${trials.length} of ${trialsWanted}`);
   pad.reset();
   pad.showStartDot(true);
+  drawSheet.inert = false;
   drawDone.disabled = true;
   showDrawStatus(null);
 }
@@ -235,7 +237,10 @@ drawDone.addEventListener("click", async () => {
   trials.push({ trace, strokeStarts: pad.strokeStarts(), features });
   if (trials.length < trialsWanted) return newTrial();
 
-  drawDone.disabled = true; // saving is async - no second record from a double tap
+  // Scoring and saving are async: lock the pad so no new ink can reach
+  // onInk and re-enable Done for a second trial or a second record.
+  drawDone.disabled = true;
+  drawSheet.inert = true;
   const { model, reference } = await scoring;
   const result = scoreSession(trials.map((t) => t.features), model, reference, choice.bracket);
   const record = {
