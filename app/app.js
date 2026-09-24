@@ -3,10 +3,10 @@
 // home). Drawing, results and collection mode plug into the same router.
 // Scoring lives in score.js, every sentence in copy.js, storage in store.js.
 
-import { SPIRAL_FEATURE_ORDER, featuresFromTrace } from "./nt-features.js";
+import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "./nt-features.js";
 import { checkScoringFiles, scoreSession } from "./score.js";
 import * as copy from "./copy.js";
-import { getPrefs, setPrefs, saveAssessment } from "./store.js";
+import { getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment } from "./store.js";
 import { createPad, spiralPoints } from "./pad.js";
 
 // ---------- spiral art (the guide spiral itself is pad.js's spiralPoints) ----------
@@ -80,7 +80,7 @@ let collecting = null; // the collection session in progress - screens past #col
 
 let previous = null; // the screen shown before this one
 
-function resolve(name) {
+function resolve(name, param) {
   const prefs = getPrefs();
   const fallback = prefs.onboarded ? "home" : "welcome";
   if (!name || !document.getElementById(`screen-${name}`)) return fallback;
@@ -90,14 +90,14 @@ function resolve(name) {
   if (name.startsWith("collect")) return name === "collect" || collecting ? name : "collect";
   if (!prefs.consented && name !== "welcome" && name !== "consent") return "welcome";
   if (name === "draw" && !choice) return "about";
-  if (name === "results" && !current) return "home";
+  if (name === "results" && !current && !param) return "home"; // #results/<id> loads from history
   return name;
 }
 
 async function route() {
   const hash = location.hash;
   const [name, param] = hash.slice(1).split("/");
-  const target = resolve(name);
+  const target = resolve(name, param);
   if (target !== name) return location.replace(`#${target}`); // fires hashchange -> route again
 
   if (name === "draw" || name === "results") {
@@ -263,6 +263,272 @@ drawDone.addEventListener("click", async () => {
   current = record;
   location.hash = "#results";
 });
+
+// ---------- results ----------
+// Renders a stored record, never a live computation: a check-in reopened from
+// history reads exactly as it did the day it was made (Ruling 7). Nothing
+// here may put result.score or result.scorePct on screen (Constraint 2).
+
+const $ = (id) => document.getElementById(id);
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+const card = (title, ...children) => {
+  const c = el("section", "card result-card");
+  c.append(el("h2", null, title), ...children);
+  return c;
+};
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const whenFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+function measureRow(key, frac) {
+  const row = el("div", "measure");
+  const track = el("div", "track");
+  track.setAttribute("aria-hidden", "true"); // the sentence is the content; the dot is a second reading
+  const dot = el("span", "track-dot");
+  dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
+  track.append(dot);
+  row.append(el("span", "measure-name", copy.MEASURES[key].name), el("span", "sub", copy.measureSentence(key, frac)), track);
+  return row;
+}
+
+function levels(tier) {
+  const wrap = el("div", "levels");
+  wrap.setAttribute("role", "img");
+  wrap.setAttribute("aria-label", `Result level: ${copy.TIER_SHORT[tier]}, ${tier + 1} of 3`);
+  copy.TIER_SHORT.forEach((label, i) => {
+    const step = el("span", i === tier ? "level on" : "level");
+    step.append(el("span", "level-bar"), el("span", "level-label", label));
+    wrap.append(step);
+  });
+  return wrap;
+}
+
+let drawing = null; // { canvas, prepared } for the replay button and theme redraws
+
+function renderResults(rec) {
+  const { result } = rec;
+  const tier = copy.TIERS[result.tier];
+  $("results-meta").textContent = `Spiral check-in · ${whenFmt.format(rec.ts)}`;
+  $("results-title").textContent = tier.label;
+
+  const shown = (key) => key in result.measurePct;
+  const stoodOut = card("What stood out", el("p", "sub", copy.STOOD_OUT_CAPTION),
+    ...result.topSignals.filter(shown).map((k) => measureRow(k, result.measurePct[k])));
+
+  const every = card("Every measure", el("p", "sub", copy.EVERY_MEASURE_CAPTION));
+  const scale = el("div", "scale-labels");
+  scale.setAttribute("aria-hidden", "true");
+  scale.append(el("span", null, "Lowest"), el("span", null, "Halfway"), el("span", null, "Highest"));
+  every.append(scale);
+  for (const g of copy.GROUPS) {
+    const keys = SPIRAL_FEATURE_ORDER.filter((k) => copy.MEASURES[k].group === g.id && shown(k));
+    if (!keys.length) continue;
+    const group = el("div", "measure-group");
+    group.append(el("h3", null, g.title), el("p", "sub", g.desc), ...keys.map((k) => measureRow(k, result.measurePct[k])));
+    every.append(group);
+  }
+
+  $("results-body").replaceChildren(
+    levels(result.tier),
+    el("p", "sub reference", copy.referenceSentence(result)),
+    card("What this means", ...tier.meaning.map((p) => el("p", null, p))),
+    stoodOut,
+    card("What you can do", el("p", null, tier.todo)),
+    drawingCard(rec),
+    every,
+  );
+}
+
+// ---------- your drawing: raw vs filtered, replay, speed ----------
+
+function drawingCard(rec) {
+  // ponytail: shows the first spiral only; add a spiral picker when trialsPerSession > 1 ships.
+  const trial = rec.trials?.[0];
+  drawing = null;
+  if (!trial?.samples) return card("Your drawing", el("p", "sub", copy.DRAWING_PRUNED));
+
+  const canvas = el("canvas", "drawing");
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", "Your recorded line drawn under the smoothed version the measures are taken from");
+  const legend = el("div", "legend");
+  for (const [cls, text] of [["swatch-raw", copy.RAW_LEGEND], ["swatch-filtered", copy.FILTERED_LEGEND]]) {
+    const row = el("div", "legend-row");
+    row.append(el("span", `swatch ${cls}`), el("span", null, text));
+    legend.append(row);
+  }
+  const replay = el("button", "btn btn-secondary btn-compact");
+  replay.type = "button";
+  replay.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>Replay drawing';
+  const speed = el("canvas", "speed");
+  speed.setAttribute("role", "img");
+  speed.setAttribute("aria-label", "Drawing speed over time");
+
+  let prepared;
+  try {
+    prepared = prepareDrawing(trial);
+  } catch (err) {
+    console.warn("NeuroTrace: couldn't prepare the drawing", err);
+    return card("Your drawing", el("p", "sub", copy.DRAWING_PRUNED));
+  }
+  drawing = { canvas, speed, prepared };
+  replay.addEventListener("click", () => replayDrawing(drawing));
+  // Painted once the card is in the document and has a size.
+  requestAnimationFrame(() => paintDrawing(drawing));
+  return card("Your drawing", canvas, legend, replay, el("hr"),
+    el("h3", null, "Speed along the line"), el("p", "sub", copy.SPEED_CAPTION), speed);
+}
+
+// Both lines go through normalize() - the centre-and-scale preprocessTrace
+// applies - so they share one space and the only visible difference is the
+// trimming, resampling and 15 Hz low-pass.
+function prepareDrawing({ samples, strokeStarts }) {
+  const t = Float64Array.from(samples, (s) => s.t);
+  const x = Float64Array.from(samples, (s) => s.x);
+  const y = Float64Array.from(samples, (s) => s.y);
+  const raw = normalize(x, y);
+  const filtered = preprocessTrace(t, x, y).slice(1);
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [px, py] of [raw, filtered]) {
+    for (let i = 0; i < px.length; i++) {
+      if (px[i] < minX) minX = px[i];
+      if (px[i] > maxX) maxX = px[i];
+      if (py[i] < minY) minY = py[i];
+      if (py[i] > maxY) maxY = py[i];
+    }
+  }
+  const starts = new Set(strokeStarts ?? [0]);
+  // Speed between neighbouring samples of the same stroke - a pen lift is not motion.
+  const speeds = [];
+  for (let i = 1; i < samples.length; i++) {
+    const dt = samples[i].t - samples[i - 1].t;
+    if (starts.has(i) || dt <= 0) continue;
+    speeds.push(Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y) / dt);
+  }
+  return { t, raw, filtered, starts, speeds, box: { minX, maxX, minY, maxY } };
+}
+
+function fitCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const { width, height } = canvas.getBoundingClientRect();
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: width, h: height };
+}
+
+function strokeLine(ctx, [px, py], map, n, starts, style, width) {
+  ctx.save();
+  ctx.strokeStyle = style;
+  ctx.lineWidth = width;
+  ctx.lineCap = ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const [X, Y] = map(px[i], py[i]);
+    if (i === 0 || starts?.has(i)) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// upTo: seconds of the raw line to draw; the smoothed line appears once it is all drawn.
+function paintDrawing(d, upTo = Infinity) {
+  if (!d?.canvas.isConnected) return;
+  const { ctx, w, h } = fitCanvas(d.canvas);
+  const { raw, filtered, t, starts, box } = d.prepared;
+  const pad = 16;
+  const s = Math.min((w - 2 * pad) / (box.maxX - box.minX || 1), (h - 2 * pad) / (box.maxY - box.minY || 1));
+  const ox = w / 2 - s * (box.minX + box.maxX) / 2, oy = h / 2 - s * (box.minY + box.maxY) / 2;
+  const map = (x, y) => [ox + s * x, oy + s * y];
+  let n = raw[0].length;
+  if (upTo < Infinity) { n = 0; while (n < t.length && t[n] <= upTo) n++; }
+  ctx.globalAlpha = 0.55;
+  strokeLine(ctx, raw, map, n, starts, cssVar("--ink2"), 1.5);
+  ctx.globalAlpha = 1;
+  if (n === raw[0].length) strokeLine(ctx, filtered, map, filtered[0].length, null, cssVar("--accent"), 3);
+  if (upTo === Infinity) paintSpeed(d);
+}
+
+function paintSpeed({ speed, prepared: { speeds } }) {
+  const { ctx, w, h } = fitCanvas(speed);
+  if (speeds.length < 2) return;
+  let top = 1;
+  for (const v of speeds) if (v > top) top = v; // no Math.max(...arr) on long traces (Constraint 6)
+  const X = (i) => (i / (speeds.length - 1)) * w, Y = (v) => h - 4 - (v / top) * (h - 8);
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  speeds.forEach((v, i) => ctx.lineTo(X(i), Y(v)));
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  ctx.fillStyle = cssVar("--accent-soft");
+  ctx.fill();
+  ctx.beginPath();
+  speeds.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v))));
+  ctx.strokeStyle = cssVar("--accent");
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+}
+
+// Always animates: the person asked for it with a button (Constraint 8).
+function replayDrawing(d) {
+  cancelAnimationFrame(d.frame);
+  const end = d.prepared.t[d.prepared.t.length - 1];
+  const start = performance.now();
+  const step = (now) => {
+    const elapsed = (now - start) / 1000;
+    paintDrawing(d, elapsed >= end ? Infinity : elapsed);
+    if (elapsed < end) d.frame = requestAnimationFrame(step);
+  };
+  d.frame = requestAnimationFrame(step);
+}
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => paintDrawing(drawing));
+
+onShow.results = async (id) => {
+  if (id) {
+    const rec = await getAssessment(Number(id)).catch(() => null);
+    if (!rec?.result) return location.replace("#home");
+    current = rec;
+  }
+  renderResults(current);
+  $("results-title").focus({ preventScroll: true });
+};
+
+// ---------- home: history ----------
+
+function historyWhen(ts) {
+  const d = new Date(ts), today = new Date();
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const days = Math.round((new Date(today.toDateString()) - new Date(d.toDateString())) / 864e5);
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  return `${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}, ${time}`;
+}
+
+onShow.home = async () => {
+  const records = await listAssessments().catch((err) => {
+    console.warn("NeuroTrace: couldn't read history", err);
+    return [];
+  });
+  if (!records.length) return; // index.html's empty state stays
+  const list = el("div", "card history-list");
+  for (const rec of records) {
+    const row = el("a", "history-row");
+    row.href = `#results/${rec.id}`;
+    const text = el("span", "history-text");
+    text.append(el("span", "history-when", historyWhen(rec.ts)), el("span", "sub", copy.TIERS[rec.result.tier].label));
+    row.append(text);
+    row.insertAdjacentHTML("beforeend", '<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
+    list.append(row);
+  }
+  $("history").replaceChildren(list);
+};
 
 // ---------- error ----------
 
