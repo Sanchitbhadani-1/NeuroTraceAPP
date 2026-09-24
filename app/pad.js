@@ -126,11 +126,19 @@ export function createPad(canvas, { onInk }) {
   }
 
   canvas.addEventListener("pointerdown", (ev) => {
-    if (ev.pointerType === "pen") penSeen = true;
+    if (ev.pointerType === "pen") {
+      // A palm that landed before the Pencil is not part of the drawing:
+      // while the trial is still touch-only, the first pen drops that ink
+      // (and the touch pointer, even mid-stroke) and starts the trial fresh.
+      // Constraint 5 still holds for the drawer's own pen lifts.
+      // ponytail: a finger-then-Pencil switch mid-trial loses the finger ink;
+      // keep it only if people really do switch.
+      if (!penSeen && inputType === "touch") reset();
+      penSeen = true;
+    }
     if (!ev.isPrimary || ev.button !== 0 || active !== null) return; // one pointer at a time
     if (ev.pointerType === "touch" && penSeen) return; // palm resting beside the pencil
     active = ev.pointerId;
-    canvas.setPointerCapture(ev.pointerId);
     if (dot) showStartDot(false);
     if (!samples.length) inputType = mapInputType(ev.pointerType);
     // A lifted finger carries on in the same trial: same samples, same t0,
@@ -138,6 +146,9 @@ export function createPad(canvas, { onInk }) {
     starts.push(samples.length);
     addSamples([ev]);
     onInk({});
+    // Last: it throws for a pointerId the browser doesn't know (synthetic
+    // events), and by then the stroke state is already consistent.
+    canvas.setPointerCapture(ev.pointerId);
   });
 
   canvas.addEventListener("pointermove", (ev) => {
@@ -152,8 +163,6 @@ export function createPad(canvas, { onInk }) {
   canvas.addEventListener("pointerup", end);
   canvas.addEventListener("pointercancel", end);
 
-  // New arrays, not truncation: a finished trial the caller kept still
-  // holds the old ones.
   function reset() {
     samples = [];
     starts = [];
@@ -173,7 +182,9 @@ export function createPad(canvas, { onInk }) {
     reset,
     showStartDot,
     hasInk: () => samples.length > 0,
-    strokeStarts: () => starts,
-    trace: (hand) => ({ task: "spiral", hand, inputType, deviceLabel: deviceLabel(), samples }),
+    // Copies: the pad stays live, and a kept trial must not grow after its
+    // features were computed.
+    strokeStarts: () => starts.slice(),
+    trace: (hand) => ({ task: "spiral", hand, inputType, deviceLabel: deviceLabel(), samples: samples.slice() }),
   };
 }
