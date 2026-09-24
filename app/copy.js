@@ -153,3 +153,7 @@ export const FILTERED_LEGEND =
 export const SPEED_CAPTION = "From your first touch on the left to your last on the right.";
 // Not in a mockup: store.js keeps raw drawings for the newest three check-ins only (handoff B6).
 export const DRAWING_PRUNED = "The drawing itself is kept only for your three most recent check-ins.";
+
+// Variant A (design canvas) - the plain line under the results verdict.
+// Same claim as CONSENT_UNDERSTAND, ClaimsRules-safe.
+export const RESULT_SUMMARY = "This is a measurement of how you drew today, not a diagnosis.";
