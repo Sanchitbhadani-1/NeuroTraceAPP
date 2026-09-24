@@ -142,3 +142,14 @@ export const NOTHING_SCORED = "Nothing was scored.";
 // the task plan for the pad's resize guard. An instruction about the screen,
 // nothing about the person, so no ClaimsRules sentence applies.
 export const RESIZE_CLEARED = "The screen changed size, so this spiral was cleared. Please draw it again.";
+
+// Results screen sentences - verbatim from Results.dc.html.
+export const STOOD_OUT_CAPTION = "The measures that moved this result the most.";
+export const EVERY_MEASURE_CAPTION =
+  "Each dot shows where you sit among the reference group. The mark in the middle is the halfway point.";
+export const RAW_LEGEND = "What the screen recorded.";
+export const FILTERED_LEGEND =
+  "The same line smoothed (100 Hz, 15 Hz low-pass) — the version every measure is taken from.";
+export const SPEED_CAPTION = "From your first touch on the left to your last on the right.";
+// Not in a mockup: store.js keeps raw drawings for the newest three check-ins only (handoff B6).
+export const DRAWING_PRUNED = "The drawing itself is kept only for your three most recent check-ins.";
