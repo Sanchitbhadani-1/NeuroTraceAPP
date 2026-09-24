@@ -1,299 +1,818 @@
-/* Design references: Linear.app (confident type, restrained palette, elevated
-   cards instead of blur) and Stripe.com (one soft animated gradient accent,
-   one unmistakable primary action). Adapted for the actual audience — older
-   adults and people with motor impairment — so: no blur-on-text, no
-   hover-only affordances, big touch targets, and every animation has an
-   off switch via prefers-reduced-motion. */
+/* NeuroTrace visual system. Every value here comes from the design canvas
+   (Main/Consent/AboutYou/Home/Draw/Results/Collect*.dc.html) and Global
+   Constraint 9. Audience: 55–85, some with tremor - so big targets, no
+   hover-only affordances, one accent (emphasis comes from weight and
+   position, never a colour ramp), no shadows except the welcome hero, and
+   every animation has an off switch via prefers-reduced-motion. */
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 
 :root {
-  --bg: #f7f6f4;
+  --bg: #f5f5f7;
   --surface: #ffffff;
-  --ink: #17181c;
-  --ink-soft: #52555c;
-  --border: #e4e2de;
-  --accent: #4c3fe0;
-  --accent-ink: #ffffff;
-  --accent-soft: #efedfe;
-  --warm: #ff7a59;
+  --ink: #1d1d1f;
+  --ink2: #6e6e73;
+  --line: rgba(0, 0, 0, 0.08);
+  --fill: #e8e8ed;
+  --guide: #d2d2d7;
+  --accent: #0066cc;
+  --accent-fill: #0066cc;
+  --accent-soft: #e8f1fb;
 
-  --radius: 20px;
-  --shadow: 0 1px 2px rgba(23, 24, 28, 0.04), 0 12px 28px -12px rgba(23, 24, 28, 0.14);
+  --hair: 1px; /* every hairline; prefers-contrast: more thickens them all */
 
-  --space-sm: clamp(0.75rem, 0.65rem + 0.4vw, 1rem);
-  --space-md: clamp(1.25rem, 1rem + 1vw, 2rem);
-  --space-lg: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+  /* 1 px at the default 17 px text size. Type is sized in multiples of it
+     (rem underneath) so it follows iOS Dynamic Type via -apple-system-body. */
+  --px: calc(1rem / 17);
+  --body: calc(17 * var(--px));
 
-  --font-size-body: clamp(1.05rem, 1rem + 0.3vw, 1.2rem);
-  --font-size-h1: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem);
-
-  --dur: 280ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121214;
-    --surface: #1b1c20;
-    --ink: #f4f3f1;
-    --ink-soft: #b4b2ae;
-    --border: #303136;
-    --accent: #8b7fff;
-    --accent-ink: #121214;
-    --accent-soft: #24213f;
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --ink: #f5f5f7;
+    --ink2: #a1a1a6;
+    --line: rgba(255, 255, 255, 0.1);
+    --fill: #3a3a3c;
+    --guide: #48484a;
+    --accent: #2997ff;
+    --accent-fill: #0071e3;
+    --accent-soft: #0d2a47;
   }
 }
 
+@media (min-width: 700px) {
+  :root { --body: calc(19 * var(--px)); }
+}
+
+/* 17 px everywhere; on iOS/iPadOS the user's Dynamic Type size instead. */
 html {
-  scroll-behavior: smooth;
+  font-size: 106.25%;
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+}
+/* -webkit-touch-callout only exists on iOS/iPadOS. macOS Safari also knows
+   -apple-system-body, but its body style is 13 pt, which would shrink the
+   whole app. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
+  html { font: -apple-system-body; }
 }
 
 body {
   margin: 0;
-  min-height: 100vh;
-  padding: var(--space-md);
-  font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
-  font-size: var(--font-size-body);
-  line-height: 1.55;
-  color: var(--ink);
   background: var(--bg);
-  overflow-x: hidden;
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font-size: var(--body);
+  line-height: 1.5;
+  letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* One soft, slow-moving gradient wash behind everything — Stripe's mesh accent,
-   toned down to a whisper so it reads as calm, not busy. Fixed so it never
-   competes with foreground content or scrolls awkwardly. */
-.ambient {
-  position: fixed;
-  inset: -10vmax;
-  z-index: -1;
-  background:
-    radial-gradient(38vmax 38vmax at 12% 8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
-    radial-gradient(34vmax 34vmax at 88% 22%, color-mix(in srgb, var(--warm) 14%, transparent), transparent 60%);
-  animation: drift 26s ease-in-out infinite alternate;
-  will-change: transform;
-}
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-weight: 600; }
+button, input { font: inherit; letter-spacing: inherit; color: inherit; }
+a { color: var(--accent); text-decoration: none; }
+svg { display: block; }
 
-@keyframes drift {
-  from { transform: translate3d(0, 0, 0) scale(1); }
-  to   { transform: translate3d(-2vmax, 2vmax, 0) scale(1.06); }
-}
+:focus-visible { outline: 3px solid #0071e3; outline-offset: 3px; }
+/* The router focuses each screen's h1 so screen readers announce the new
+   screen; it is not a control, so it gets no ring. */
+h1:focus { outline: none; }
 
-.page {
-  max-width: 640px;
-  margin-inline: auto;
-}
-
-/* ---------- brand mark: a spiral that draws itself once, then sits still.
-   Not decoration for its own sake — it's literally the shape the app measures. ---------- */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-bottom: var(--space-md);
-}
-
-.brand svg { display: block; }
-
-.brand-path {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  /* dasharray/dashoffset are computed and animated in app.js from the
-     path's real length — stroke-dashoffset: 0 here is the no-JS fallback
-     (fully drawn, not stuck invisible). */
-  stroke-dashoffset: 0;
-}
-
-.brand-name {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-/* ---------- step progress ---------- */
-
-.steps {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: var(--space-md);
-}
-
-.steps span {
-  height: 6px;
-  flex: 1;
-  border-radius: 999px;
-  background: var(--border);
-  transition: background var(--dur) var(--ease);
-}
-
-.steps span.done { background: var(--accent); }
-
-/* ---------- screens as elevated cards, crossfade + rise between them ---------- */
+/* ---------- screens: one centred column, primary action at the bottom ---------- */
 
 .screen {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: var(--space-lg);
-  animation: enter var(--dur) var(--ease);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding:
+    max(env(safe-area-inset-top), 24px)
+    max(env(safe-area-inset-right), 24px)
+    max(env(safe-area-inset-bottom), 24px)
+    max(env(safe-area-inset-left), 24px);
+  animation: enter 280ms var(--ease) both;
 }
-
 .screen[hidden] { display: none; }
 
 @keyframes enter {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px); }
 }
+
+/* padding-top keeps a gap when the content above fills the screen and
+   margin-top: auto collapses to nothing. */
+.actions {
+  margin-top: auto;
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.actions.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ---------- type ---------- */
 
 h1 {
-  font-size: var(--font-size-h1);
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  margin: 0 0 var(--space-sm);
+  margin-top: 16px;
+  font-size: calc(34 * var(--px));
+  line-height: 1.1;
+  letter-spacing: -0.028em;
+  text-wrap: balance;
 }
 
-p { color: var(--ink-soft); }
-p strong { color: var(--ink); }
+.lede { color: var(--ink2); text-wrap: pretty; }
+h1 + .lede { margin-top: 10px; }
+
+.sub {
+  font-size: calc(15 * var(--px));
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ink2);
+  text-wrap: pretty;
+}
+.center { text-align: center; }
+
+.section-title {
+  margin-top: 28px;
+  font-size: calc(21 * var(--px));
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- brand mark and spiral art (paths filled in by app.js) ----------
+   Not decoration for its own sake - it's literally the shape the app measures. */
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.brand svg { width: 28px; height: 28px; flex-shrink: 0; }
+.brand-name {
+  font-size: calc(19 * var(--px));
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.mark {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 30;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.art-guide { fill: none; stroke: var(--guide); stroke-width: 3; }
+.art-trace {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* The one shadow in the app (Constraint 9). Shrinks on short phones so the
+   welcome screen still fits without scrolling: 572 px is everything else on
+   it at 390 × 844. */
+.hero {
+  margin-top: 20px;
+  align-self: center;
+  width: 272px;
+  width: clamp(180px, 100svh - 572px, 272px);
+  aspect-ratio: 1;
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line), 0 24px 48px -24px rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+}
+.hero svg { width: 86.8%; height: 86.8%; }
+
+/* pathLength="1" on the path makes the dash maths length-independent. */
+.draw-in {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-in 2.6s var(--ease) 0.3s forwards;
+}
+@keyframes draw-in {
+  to { stroke-dashoffset: 0; }
+}
+
+.lock {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: calc(15 * var(--px));
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--ink2);
+}
+.lock svg { width: 20px; height: 20px; margin-top: 1px; }
+
+.icon {
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* ---------- controls ---------- */
 
-button {
-  font: inherit;
-  font-weight: 600;
-  padding: 0.9rem 1.5rem;
-  min-height: 52px;
-  border: 2px solid var(--ink);
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 150ms var(--ease), box-shadow 150ms var(--ease), opacity 150ms;
-}
-
-button:active { transform: scale(0.97); }
-
-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
-}
-
-button.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 56px;
-}
-
-button:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-}
-
-.nav-row {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: var(--space-md);
-  flex-wrap: wrap;
-}
-
-.check-row {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  margin: var(--space-md) 0;
-  font-size: var(--font-size-body);
-}
-
-.check-row input {
-  width: 28px;
-  height: 28px;
-  accent-color: var(--accent);
-  flex-shrink: 0;
-}
-
-/* ---------- capture / replay ---------- */
-
-.canvas-wrap {
-  position: relative;
-  margin-top: var(--space-md);
-}
-
-canvas {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
-  touch-action: none;
-}
-
-#speed-canvas {
-  aspect-ratio: 4 / 1;
-  margin-top: var(--space-sm);
-}
-
-.saved-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.75rem;
+  padding: 8px 24px;
+  border: 0;
   border-radius: 999px;
+  font-size: calc(17 * var(--px));
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease), opacity 120ms;
+}
+/* Every tap gets a visible response - people with reduced sensation need to
+   see that it registered. */
+.btn:active:not(:disabled) { transform: scale(0.97); opacity: 0.8; }
+.btn-primary { background: var(--accent-fill); color: #ffffff; }
+.btn-secondary {
+  background: transparent;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.btn:disabled {
+  background: var(--fill);
+  color: var(--ink2);
+  box-shadow: none;
+  cursor: default;
+}
+.btn svg { width: 22px; height: 22px; stroke-width: 2.2; }
+
+/* Text links in bars and footers: still a 44 px target. */
+.bar-link, .back, .links a, .topbar a {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+.bar-link, .back { font-size: calc(17 * var(--px)); letter-spacing: -0.022em; }
+.bar-link.strong { justify-content: flex-end; font-weight: 600; }
+.back { gap: 2px; margin-left: -8px; justify-self: start; }
+.back svg { width: 24px; height: 24px; stroke-width: 2.2; }
+
+.links { display: flex; flex-wrap: wrap; column-gap: 24px; }
+.links a { font-size: calc(15 * var(--px)); letter-spacing: -0.01em; }
+
+/* Back / title / (empty) - a fixed side column on each side keeps the
+   middle item truly centred. */
+.bar {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) 88px;
+  align-items: center;
+  min-height: 44px;
+}
+.bar > :nth-child(2) { justify-self: center; text-align: center; }
+.bar > :nth-child(3) { justify-self: end; text-align: right; }
+.bar-title {
+  margin: 0;
+  font-size: calc(17 * var(--px));
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.022em;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+}
+
+.segments { display: flex; gap: 6px; width: 120px; }
+.segments span {
+  flex-grow: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--fill);
+}
+.segments .on { background: var(--accent); }
+
+.pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: calc(15 * var(--px));
+  font-weight: 600;
+}
+.pill:empty { display: none; }
+
+/* ---------- cards ---------- */
+
+.card {
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: var(--hair) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notice { margin-top: 24px; }
+
+/* Consent rows: the whole 72 px row is the label, so a shaky tap anywhere
+   on it ticks the box. The divider is inset past the checkbox, iOS-style. */
+.checks { margin-top: 16px; padding: 0; gap: 0; overflow: hidden; }
+.check {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+  padding: 14px 20px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.check + .check::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 62px;
+  right: 0;
+  height: var(--hair);
+  background: var(--line);
+}
+.check input {
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+/* ---------- radio chips (About you, collection details) ----------
+   A real radio sits invisibly under each pill so keyboard, screen reader and
+   form semantics are the browser's own; the pill shows its state. */
+
+fieldset { margin: 28px 0 0; padding: 0; border: 0; min-width: 0; }
+legend {
+  padding: 0;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.022em;
+}
+.chips {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.chip { position: relative; display: flex; }
+.chip input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+}
+.chip span {
+  position: relative;
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 var(--hair) var(--line);
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 120ms var(--ease), opacity 120ms;
+}
+.chip input:checked + span {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  font-weight: 600;
+}
+.chip input:focus-visible + span { outline: 3px solid #0071e3; outline-offset: 3px; }
+.chip:active span { transform: scale(0.97); opacity: 0.8; }
+fieldset + .sub { margin-top: 10px; }
+
+/* ---------- welcome ---------- */
+
+#screen-welcome h1 {
+  margin-top: 32px;
+  font-size: calc(40 * var(--px));
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+#screen-welcome .lede { margin-top: 12px; }
+#screen-welcome .actions { gap: 16px; }
+
+/* ---------- home ---------- */
+
+#screen-home .brand-name { font-size: calc(21 * var(--px)); }
+.checkin { margin-top: 16px; gap: 16px; }
+.checkin-row { display: flex; gap: 16px; align-items: center; }
+.checkin-row > div { flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
+#screen-home h1 {
+  margin: 0;
+  font-size: calc(24 * var(--px));
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+#screen-home h1 + .lede { margin: 0; line-height: 1.45; }
+.mini { width: 92px; height: 92px; flex-shrink: 0; }
+.mini .art-guide { stroke-width: 7; }
+.mini .art-trace { stroke-width: 13; }
+.empty { margin-top: 12px; padding: 24px 20px; color: var(--ink2); text-wrap: pretty; }
+#screen-home .actions { gap: 8px; }
+
+/* ---------- drawing ---------- */
+
+#draw-progress { margin-top: 4px; align-self: center; width: 96px; }
+#screen-draw h1 {
+  margin-top: 20px;
+  font-size: calc(28 * var(--px));
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+}
+#screen-draw h1 + .lede { margin-top: 8px; }
+
+/* The pad sheet around the canvas. Square, as large as fits above the
+   buttons; the touch properties stop iOS from scrolling, selecting or
+   showing a callout mid-stroke, and reach the canvas inside. */
+.pad {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: 20px;
+  align-self: center;
+  width: min(100%, calc(100svh - 320px));
+  min-width: min(280px, 100%);
+  aspect-ratio: 1;
+  border-radius: 24px;
+  background: var(--surface);
+  border: var(--hair) solid var(--line);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@media (min-width: 700px) {
+  .pad { border-radius: 28px; }
+}
+/* The canvas has no border of its own, so pointer coordinates measured from
+   its rect are canvas space. */
+.pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* The start dot's halo (pad.js adds it). The canvas draws the dot itself and
+   is transparent around it, so this pulses under the dot and the guide, as in
+   Draw.dc.html. 36 px is the mockup's r = 18. */
+.pad-start {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  transform: scale(0.7);
+  pointer-events: none;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+@keyframes pulse {
+  50% { transform: scale(1.25); opacity: 0.12; }
+}
+
+/* Inline notice under the pad (too short, cleared by a resize). */
+.status {
+  margin-top: 16px;
+  padding: 14px 16px;
+  flex-direction: row;
+  align-items: flex-start;
+  font-size: calc(15 * var(--px));
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+.status[hidden] { display: none; }
+.status svg { width: 22px; height: 22px; color: var(--accent); }
+.status strong { font-weight: 600; }
+
+/* ---------- results ---------- */
+
+#screen-results h1 {
+  margin-top: 14px;
+  font-size: calc(32 * var(--px));
+  line-height: 1.12;
+}
+#screen-results .actions { margin-top: 28px; }
+
+/* Percentile track: 0 on the left, the highest reference value on the right,
+   the halfway mark in the middle so a dot means something without an axis.
+   The sentence above it is the real content - this is a second reading of
+   the same number, so the markup marks it aria-hidden. */
+.track { position: relative; height: 20px; margin: 6px 8px 0; }
+.track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill);
+}
+.track::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  width: 2px;
+  height: 14px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--guide);
+}
+.track-dot {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: clamp(3%, var(--p), 97%);
+  width: 20px;
+  height: 20px;
+  margin-left: -10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--surface);
+  animation: settle 520ms var(--ease) backwards;
+}
+/* Travels out from the halfway mark, which is what the position is
+   relative to. */
+@keyframes settle {
+  from { left: 50%; opacity: 0; }
+}
+
+/* Three equal steps with only the one that applies filled - which of three
+   readings this is, never a meter (Constraint 2). */
+.levels {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.level { display: flex; flex-direction: column; gap: 8px; }
+.level-bar { height: 8px; border-radius: 4px; background: var(--fill); }
+.level-label {
+  font-size: calc(15 * var(--px));
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  color: var(--ink2);
+}
+.level.on .level-bar { background: var(--accent); }
+.level.on .level-label { color: var(--ink); font-weight: 600; }
+
+/* Variant A (design canvas): the first thing under the verdict says what
+   it is not, in words big enough to read without glasses. */
+.summary {
+  margin-top: 10px;
+  font-size: calc(19 * var(--px));
+  font-weight: 600;
+  line-height: 1.45;
+}
+.reference { margin-top: 18px; }
+.result-card { margin-top: 16px; }
+.reference + .result-card { margin-top: 28px; }
+.result-card h2 { font-size: calc(21 * var(--px)); line-height: 1.2; letter-spacing: -0.02em; }
+.result-card h3 { font-size: calc(19 * var(--px)); line-height: 1.25; letter-spacing: -0.02em; }
+.result-card hr { width: 100%; margin: 6px 0; border: 0; border-top: var(--hair) solid var(--line); }
+
+.measure {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: var(--hair) solid var(--line);
+}
+.measure-name { font-weight: 600; line-height: 1.3; }
+.measure-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: var(--hair) solid var(--line);
+}
+.measure-group .measure { border-top: 0; padding-top: 10px; }
+.scale-labels {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 8px;
+  font-size: calc(15 * var(--px));
+  color: var(--ink2);
+}
+
+.drawing { width: 100%; max-width: 320px; aspect-ratio: 1; align-self: center; }
+.speed { width: 100%; height: 88px; }
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: calc(15 * var(--px));
+  line-height: 1.4;
+  color: var(--ink2);
+}
+.legend-row { display: flex; gap: 10px; align-items: baseline; }
+.swatch { flex-shrink: 0; width: 22px; border-radius: 2px; }
+.swatch-raw { height: 2px; background: var(--ink2); transform: translateY(-4px); }
+.swatch-filtered { height: 4px; background: var(--accent); transform: translateY(-3px); }
+.btn-compact { align-self: flex-start; min-height: 48px; padding: 0 20px; }
+.btn-compact svg { width: 16px; height: 16px; }
+
+/* ---------- home: history list ---------- */
+
+.history-list { margin-top: 12px; padding: 0; gap: 0; overflow: hidden; }
+.history-row {
+  min-height: 68px;
+  padding: 12px 16px 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.history-row + .history-row { border-top: var(--hair) solid var(--line); }
+.history-row:active { background: var(--fill); }
+.history-text { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; }
+.history-when { font-weight: 600; line-height: 1.3; }
+.chevron { width: 20px; height: 20px; color: var(--ink2); stroke-width: 2.2; }
+
+/* ---------- error ---------- */
+
+#error-message { margin-top: 16px; color: var(--ink); }
+#error-message + .lede { margin-top: 12px; }
+
+/* ---------- collection mode: iPad scale, black bar, wider column ---------- */
+
+.collect-screen {
+  --body: calc(19 * var(--px));
+  font-size: var(--body);
+  max-width: none;
+  padding: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: calc(52px + env(safe-area-inset-top));
+  padding:
+    env(safe-area-inset-top)
+    max(env(safe-area-inset-right), 32px)
+    0
+    max(env(safe-area-inset-left), 32px);
+  background: #000000;
+  color: #f5f5f7;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: calc(15 * var(--px));
+  letter-spacing: -0.01em;
+}
+.topbar-brand { display: flex; align-items: center; gap: 10px; }
+.topbar-brand svg { width: 22px; height: 22px; }
+.topbar .mark { stroke: #f5f5f7; }
+.topbar .brand-name { font-size: inherit; letter-spacing: inherit; }
+.topbar-mode { color: #a1a1a6; }
+.topbar a { justify-content: flex-end; color: #2997ff; }
+
+.col {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding:
+    20px
+    max(env(safe-area-inset-right), 24px)
+    max(env(safe-area-inset-bottom), 40px)
+    max(env(safe-area-inset-left), 24px);
+}
+.col.centred { align-items: center; text-align: center; }
+.col.centred > .bar,
+.col.centred > .actions { align-self: stretch; text-align: initial; }
+
+.collect-screen h1 {
+  margin-top: 20px;
+  font-size: calc(40 * var(--px));
+  letter-spacing: -0.03em;
+}
+#screen-collect .col { padding-top: 48px; }
+#screen-collect h1,
+#screen-collect-done h1 {
+  margin-top: 0;
+  font-size: calc(44 * var(--px));
+  line-height: 1.08;
+}
+.collect-screen h1 + .lede { margin-top: 14px; max-width: 620px; }
+.collect-screen .bar { grid-template-columns: 160px minmax(0, 1fr) 160px; }
+.collect-screen .bar-title { margin: 0; font-size: calc(21 * var(--px)); letter-spacing: -0.022em; }
+.collect-screen .btn { min-height: 64px; font-size: calc(19 * var(--px)); }
+.collect-screen .card { padding: 28px; gap: 16px; }
+.collect-screen .card h2 {
+  font-size: calc(24 * var(--px));
+  line-height: 1.2;
+  letter-spacing: -0.022em;
+}
+.collect-screen .card .lede { font-size: calc(17 * var(--px)); }
+
+.collect-grid {
+  margin-top: 36px;
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+@media (min-width: 700px) {
+  .collect-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.id-box {
+  min-height: 104px;
+  border-radius: 11px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.id-label { font-size: calc(15 * var(--px)); font-weight: 600; color: var(--ink2); }
+.id-box .mono { font-size: calc(40 * var(--px)); font-weight: 600; letter-spacing: 0.08em; }
+
+#collect-progress { margin-top: 8px; width: 180px; gap: 8px; }
+#collect-progress span { height: 6px; }
+#screen-collect-draw .lede { margin-top: 24px; max-width: 620px; text-wrap: balance; }
+#screen-collect-draw .pad { margin-top: 28px; width: min(100%, 680px, calc(100svh - 420px)); }
+#screen-collect-draw .actions,
+#screen-collect-done .actions { width: 100%; max-width: 680px; align-self: center; }
+#screen-collect-done .actions { max-width: 600px; }
+#screen-collect-done .col { padding-top: 96px; }
+
+.done-mark {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 0.9rem;
-  font-weight: 600;
-  opacity: 0;
-  transform: translateY(-6px) scale(0.95);
-  transition: opacity 220ms var(--ease), transform 220ms var(--ease);
-  pointer-events: none;
+  display: grid;
+  place-items: center;
 }
-
-.saved-badge.show {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.saved-badge svg {
-  stroke: var(--accent);
-  stroke-width: 3;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 20;
-  stroke-dashoffset: 20;
-}
-
-.saved-badge.show svg {
-  animation: check 320ms var(--ease) 150ms forwards;
-}
-
-@keyframes check {
-  to { stroke-dashoffset: 0; }
-}
+.done-mark svg { width: 46px; height: 46px; stroke-width: 2.4; }
+#screen-collect-done h1 { margin-top: 28px; }
+#screen-collect-done .lede { max-width: 560px; text-wrap: balance; }
 
 /* ---------- motion & contrast preferences: never optional ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  .ambient { animation: none; }
-  .screen { animation: none; }
-  button:active { transform: none; }
-  .saved-badge, .saved-badge svg { transition: none; animation: none; }
-  .saved-badge.show { opacity: 1; transform: none; }
-  .saved-badge.show svg { stroke-dashoffset: 0; }
+  .screen, .track-dot, .pad-start { animation: none; }
+  .draw-in { animation: none; stroke-dashoffset: 0; }
+  .btn, .chip span { transition: none; }
+  .btn:active:not(:disabled), .chip:active span { transform: none; }
 }
 
 @media (prefers-contrast: more) {
-  :root { --border: #8a8a8a; }
-  .screen { box-shadow: none; border-width: 2px; }
+  :root { --line: #8a8a8a; --hair: 2px; }
+  /* the track is the one place on the results screen where meaning rides on
+     a tone rather than a word */
+  .track::before { background: #8a8a8a; }
+  .track::after { background: var(--ink2); }
 }
