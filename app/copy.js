@@ -2,7 +2,7 @@
 // it can be checked against Markdowns/NeuroTrace_ClaimsRules.md in one place
 // (Global Constraint 10). Pure data + tiny string helpers - no DOM.
 
-const NOT_A_DIAGNOSIS =
+export const NOT_A_DIAGNOSIS =
   "These are measurements of how you moved during the tasks, compared with other people who " +
   "took the same tasks. They are not a diagnosis and cannot tell you whether you have a " +
   "neurological condition.";
@@ -10,6 +10,9 @@ const NOT_A_DIAGNOSIS =
 const MANY_THINGS =
   "Many things move these numbers — caffeine, fatigue, sleep, anxiety, medication timing, cold " +
   "hands, familiarity with the task. One drawing is a single reading, not a pattern.";
+
+// The consent card uses only the first sentence (Consent.dc.html).
+export const MANY_THINGS_SHORT = MANY_THINGS.slice(0, MANY_THINGS.indexOf(".") + 1);
 
 // Indexed by tier. label is verbatim (Global Constraint 3) - never reword.
 export const TIERS = [
@@ -100,3 +103,29 @@ export const AGE_CHOICES = [
 export const PITCH = "NeuroTrace turns an ordinary phone into a motor-function measurement tool.";
 export const TRACKS = "It reports where each measure falls relative to a reference population and tracks how it changes over time.";
 export const ON_DEVICE = "All analysis runs on the device. No motor data ever leaves the phone.";
+
+// Every other full sentence on the screens, verbatim from the design canvas
+// (*.dc.html), filled into index.html through data-copy="KEY". Headings,
+// button and chip labels stay in the markup; sentences live here.
+export const CONSENT_UNDERSTAND = "I understand this is a measurement tool, not a medical diagnosis.";
+export const CONSENT_ADULT = "I am 18 years of age or older.";
+export const CONSENT_HELP = "Tick both boxes to continue.";
+export const ABOUT_WHY = "Used only to choose who you are compared with. Kept on this device.";
+export const HAND_HELP = "The hand you will draw with. Use the same one each time so your check-ins compare fairly.";
+export const CHECKIN_BLURB = "About two minutes. Draw a spiral with your finger or a stylus.";
+export const HISTORY_EMPTY = "Your results will appear here after your first check-in. They stay on this device.";
+export const DRAW_INSTRUCTION =
+  "Start at the blue dot and follow the grey line outwards, at a comfortable pace. Lifting your " +
+  "finger is fine — carry on from where you stopped.";
+export const NOTHING_SCORED = "Nothing was scored.";
+export const COLLECT_INTRO =
+  "Three spirals per participant, for the device-matched reference. No results are calculated or " +
+  "shown in this mode.";
+export const NEW_PARTICIPANT =
+  "A random ID is made for them. Write it on their signed consent form — names are never stored.";
+export const RETURNING_BLURB = "Pick up an ID already on this iPad.";
+export const COLLECT_DRAW_INSTRUCTION =
+  "Start at the dot in the middle and trace outwards at a comfortable pace. Lifting the pencil is " +
+  "fine — carry on from where you stopped.";
+export const SESSION_SAVED =
+  "Three spirals are stored on this iPad. Thank the participant — no results are shown in collection mode.";
