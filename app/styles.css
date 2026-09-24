@@ -49,13 +49,16 @@
   :root { --body: calc(19 * var(--px)); }
 }
 
-/* 17 px everywhere; on Apple platforms the user's Dynamic Type size instead. */
+/* 17 px everywhere; on iOS/iPadOS the user's Dynamic Type size instead. */
 html {
   font-size: 106.25%;
   -webkit-text-size-adjust: 100%;
   background: var(--bg);
 }
-@supports (font: -apple-system-body) {
+/* -webkit-touch-callout only exists on iOS/iPadOS. macOS Safari also knows
+   -apple-system-body, but its body style is 13 pt, which would shrink the
+   whole app. */
+@supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html { font: -apple-system-body; }
 }
 
