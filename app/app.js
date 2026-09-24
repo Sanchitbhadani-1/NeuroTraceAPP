@@ -3,23 +3,13 @@
 // home). Drawing, results and collection mode plug into the same router.
 // Scoring lives in score.js, every sentence in copy.js, storage in store.js.
 
-import { SPIRAL_FEATURE_ORDER } from "./nt-features.js";
-import { checkScoringFiles } from "./score.js";
+import { SPIRAL_FEATURE_ORDER, featuresFromTrace } from "./nt-features.js";
+import { checkScoringFiles, scoreSession } from "./score.js";
 import * as copy from "./copy.js";
-import { getPrefs, setPrefs } from "./store.js";
+import { getPrefs, setPrefs, saveAssessment } from "./store.js";
+import { createPad, spiralPoints } from "./pad.js";
 
-// ---------- spiral math, shared by the brand mark, the spiral art and the pad guide ----------
-
-function spiralPoints(r0, r1, turns, steps) {
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const p = i / steps;
-    const theta = p * turns * 2 * Math.PI;
-    const r = r0 + p * (r1 - r0);
-    pts.push([r * Math.cos(theta), r * Math.sin(theta)]);
-  }
-  return pts;
-}
+// ---------- spiral art (the guide spiral itself is pad.js's spiralPoints) ----------
 
 // A believable hand-drawn line for the welcome and home art: the guide spiral
 // pushed in and out along its radius by a slow wobble plus a little jitter,
@@ -183,6 +173,90 @@ aboutContinue.addEventListener("click", () => {
   setPrefs({ ageChoice, hand });
   choice = { ageChoice, bracket: copy.AGE_CHOICES.find((c) => c.label === ageChoice).bracket, hand };
   location.hash = "#draw";
+});
+
+// ---------- draw ----------
+// One check-in is reference.trialsPerSession spirals, averaged - the user is
+// measured the same way the reference group was.
+
+const drawDone = document.getElementById("draw-done");
+const drawStatus = document.getElementById("draw-status");
+let trials = []; // this check-in's finished spirals: { trace, strokeStarts, features }
+let trialsWanted = 1;
+
+const pad = createPad(document.getElementById("draw-pad"), {
+  onInk({ cleared }) {
+    drawDone.disabled = !pad.hasInk();
+    showDrawStatus(cleared ? copy.RESIZE_CLEARED : null); // new ink makes an old message stale
+    if (cleared) pad.showStartDot(true);
+  },
+});
+
+// First sentence in bold, as in Draw.dc.html's too-short card.
+function showDrawStatus(sentence) {
+  drawStatus.hidden = !sentence;
+  if (!sentence) return;
+  const cut = sentence.indexOf(".") + 1;
+  drawStatus.querySelector("strong").textContent = sentence.slice(0, cut);
+  drawStatus.querySelector("strong + span").textContent = sentence.slice(cut);
+}
+
+function newTrial() {
+  const n = trials.length + 1;
+  document.getElementById("draw-count").textContent = `Spiral ${n} of ${trialsWanted}`;
+  const progress = document.getElementById("draw-progress");
+  progress.innerHTML = Array.from({ length: trialsWanted }, (_, i) => (i < n ? '<span class="on"></span>' : "<span></span>")).join("");
+  progress.setAttribute("aria-valuemax", trialsWanted);
+  progress.setAttribute("aria-valuenow", trials.length);
+  progress.setAttribute("aria-valuetext", `${trials.length} of ${trialsWanted}`);
+  pad.reset();
+  pad.showStartDot(true);
+  drawDone.disabled = true;
+  showDrawStatus(null);
+}
+
+onShow.draw = async () => {
+  const { reference } = await scoring;
+  trialsWanted = reference.trialsPerSession;
+  trials = [];
+  newTrial();
+};
+
+document.getElementById("draw-restart").addEventListener("click", newTrial); // this trial only
+
+drawDone.addEventListener("click", async () => {
+  const trace = pad.trace(choice.hand);
+  let features;
+  try {
+    features = featuresFromTrace(trace);
+  } catch {
+    return showDrawStatus(copy.TOO_SHORT); // the ink stays so they can see what happened
+  }
+  trials.push({ trace, strokeStarts: pad.strokeStarts(), features });
+  if (trials.length < trialsWanted) return newTrial();
+
+  drawDone.disabled = true; // saving is async - no second record from a double tap
+  const { model, reference } = await scoring;
+  const result = scoreSession(trials.map((t) => t.features), model, reference, choice.bracket);
+  const record = {
+    ts: Date.now(),
+    task: "spiral",
+    hand: choice.hand,
+    ageChoice: choice.ageChoice,
+    bracketChoice: choice.bracket,
+    inputType: trials[0].trace.inputType,
+    deviceLabel: trials[0].trace.deviceLabel,
+    trials: trials.map(({ trace, strokeStarts, features }) => ({ samples: trace.samples, strokeStarts, features })),
+    features: result.features,
+    result,
+  };
+  try {
+    await saveAssessment(record);
+  } catch (err) {
+    console.warn("NeuroTrace: couldn't save this check-in to history", err); // still show the result
+  }
+  current = record;
+  location.hash = "#results";
 });
 
 // ---------- error ----------
