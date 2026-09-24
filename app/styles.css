@@ -281,6 +281,151 @@ canvas {
   to { stroke-dashoffset: 0; }
 }
 
+/* ---------- results ----------
+   Deliberately no red/amber/green anywhere below. The three tiers are not risk
+   levels, and a traffic-light ramp would say they are louder than any caption
+   could unsay it. Escalation is carried by type weight and by whether the
+   badge is outlined or filled, inside the same accent/ink palette. */
+
+.results-eyebrow {
+  margin: 0 0 var(--space-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.tier {
+  display: inline-block;
+  margin: 0 0 var(--space-sm);
+  padding: 0.5rem 1.1rem;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  font-size: var(--font-size-h1);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.tier[data-tier="1"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.tier[data-tier="2"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+}
+
+.reference-note { margin-top: 0; }
+
+.results-section {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+
+.results-section h2 {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-sm);
+}
+
+.top-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--ink-soft);
+}
+
+.top-list li { margin-bottom: 0.35rem; }
+
+.measure-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.measure + .measure { margin-top: var(--space-sm); }
+
+.measure-text {
+  margin: 0 0 0.45rem;
+  color: var(--ink);
+}
+
+/* 0 on the left, 100th percentile on the right, with the midpoint marked so a
+   dot means something without a printed axis. The sentence above is the real
+   content — this is a second reading of the same number, never the only one. */
+.measure-track {
+  position: relative;
+  /* half a dot of breathing room at each end, so 0th and 100th percentile sit
+     on the track rather than hanging off it */
+  margin: 0 7px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.measure-track::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+
+.measure-dot {
+  position: absolute;
+  top: 50%;
+  left: var(--p);
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: settle 520ms var(--ease) backwards;
+}
+
+/* Travels out from the midpoint of the reference sample, which is the thing
+   the position is relative to. */
+@keyframes settle {
+  from { left: 50%; opacity: 0; }
+  to   { left: var(--p); opacity: 1; }
+}
+
+.legend {
+  font-size: 0.95rem;
+  margin-top: 0;
+}
+
+.swatch {
+  display: inline-block;
+  width: 1.4rem;
+  height: 3px;
+  border-radius: 999px;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+.swatch-raw { background: var(--ink-soft); }
+.swatch-filtered { background: linear-gradient(90deg, var(--accent), var(--warm)); }
+
+.results-error {
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  padding: var(--space-md);
+}
+
+.results-error h1 { font-size: 1.5rem; }
+.results-error p:last-child { margin-bottom: 0; }
+
 /* ---------- motion & contrast preferences: never optional ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -291,9 +436,18 @@ canvas {
   .saved-badge, .saved-badge svg { transition: none; animation: none; }
   .saved-badge.show { opacity: 1; transform: none; }
   .saved-badge.show svg { stroke-dashoffset: 0; }
+  .measure-dot { animation: none; }
 }
 
 @media (prefers-contrast: more) {
   :root { --border: #8a8a8a; }
   .screen { box-shadow: none; border-width: 2px; }
+  .tier { border-width: 3px; }
+  .results-section { border-top-width: 2px; }
+  /* the track, the dot and the two legend swatches are the only places on the
+     results screen where meaning rides on a tone rather than on a word */
+  .measure-track { background: color-mix(in srgb, var(--ink) 35%, transparent); }
+  .measure-dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+  .swatch { height: 5px; }
+  .swatch-raw { background: var(--ink); }
 }

@@ -17,8 +17,8 @@
       <span class="brand-name">NeuroTrace</span>
     </div>
 
-    <div class="steps" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="steps">
-      <span class="done"></span><span></span><span></span><span></span><span></span>
+    <div class="steps" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="6" aria-valuenow="1" id="steps">
+      <span class="done"></span><span></span><span></span><span></span><span></span><span></span>
     </div>
 
     <section id="screen-onboarding" class="screen" data-step="1">
@@ -82,12 +82,56 @@
       <canvas id="replay-canvas" width="600" height="600"></canvas>
       <canvas id="speed-canvas" width="600" height="150"></canvas>
       <div class="nav-row">
-        <button class="primary" id="replay-again-btn">Play again</button>
+        <button class="primary" id="results-btn" data-next="screen-results">See results</button>
+        <button id="replay-again-btn">Play again</button>
         <button data-back="screen-capture">Back to capture</button>
+      </div>
+    </section>
+
+    <section id="screen-results" class="screen" data-step="6" hidden>
+      <div id="results-error" class="results-error" hidden></div>
+
+      <div id="results-body">
+        <p class="results-eyebrow">Spiral trace</p>
+        <h1 class="tier" id="results-tier"></h1>
+        <p class="reference-note" id="results-reference"></p>
+
+        <div class="results-section">
+          <h2>What moved these numbers most</h2>
+          <ul class="top-list" id="results-top"></ul>
+        </div>
+
+        <div class="results-section">
+          <h2>Every measure</h2>
+          <ul class="measure-list" id="results-measures"></ul>
+        </div>
+
+        <div class="results-section">
+          <h2>What this means</h2>
+          <div id="results-meaning"></div>
+        </div>
+
+        <div class="results-section">
+          <h2>Your stroke, before and after filtering</h2>
+          <p class="legend">
+            <span class="swatch swatch-raw" aria-hidden="true"></span>The muted line is what the
+            screen recorded.
+            <span class="swatch swatch-filtered" aria-hidden="true"></span>The coloured line is the
+            same stroke resampled to a steady 100&nbsp;Hz and low-passed at 15&nbsp;Hz &mdash; the
+            version every measure above is taken from.
+          </p>
+          <canvas id="overlay-canvas" width="600" height="600" role="img"
+                  aria-label="Your recorded stroke drawn over the filtered version of the same stroke."></canvas>
+        </div>
+      </div>
+
+      <div class="nav-row">
+        <button data-back="screen-replay">Back to replay</button>
+        <button data-back="screen-capture">Draw again</button>
       </div>
     </section>
   </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
