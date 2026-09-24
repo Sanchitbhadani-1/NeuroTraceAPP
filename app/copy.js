@@ -104,9 +104,10 @@ export const PITCH = "NeuroTrace turns an ordinary phone into a motor-function m
 export const TRACKS = "It reports where each measure falls relative to a reference population and tracks how it changes over time.";
 export const ON_DEVICE = "All analysis runs on the device. No motor data ever leaves the phone.";
 
-// Every other full sentence on the screens, verbatim from the design canvas
-// (*.dc.html), filled into index.html through data-copy="KEY". Headings,
-// button and chip labels stay in the markup; sentences live here.
+// Screen sentences taken verbatim from the design mockups (*.dc.html), which
+// were written against ClaimsRules. index.html pulls every sentence from this
+// file through data-copy="KEY"; headings, legends and button/chip labels stay
+// in the markup.
 export const CONSENT_UNDERSTAND = "I understand this is a measurement tool, not a medical diagnosis.";
 export const CONSENT_ADULT = "I am 18 years of age or older.";
 export const CONSENT_HELP = "Tick both boxes to continue.";
@@ -117,7 +118,6 @@ export const HISTORY_EMPTY = "Your results will appear here after your first che
 export const DRAW_INSTRUCTION =
   "Start at the blue dot and follow the grey line outwards, at a comfortable pace. Lifting your " +
   "finger is fine — carry on from where you stopped.";
-export const NOTHING_SCORED = "Nothing was scored.";
 export const COLLECT_INTRO =
   "Three spirals per participant, for the device-matched reference. No results are calculated or " +
   "shown in this mode.";
@@ -129,3 +129,9 @@ export const COLLECT_DRAW_INSTRUCTION =
   "fine — carry on from where you stopped.";
 export const SESSION_SAVED =
   "Three spirals are stored on this iPad. Thank the participant — no results are shown in collection mode.";
+
+// Error screen (not in any mockup): its heading "We can't show results"
+// (index.html) and this sentence are carried over from the previous app.js
+// results-error copy. The old follow-on about going back to replay the
+// drawing is dropped - there is no replay screen any more.
+export const NOTHING_SCORED = "Nothing was scored.";
