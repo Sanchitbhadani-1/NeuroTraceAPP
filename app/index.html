@@ -102,7 +102,13 @@
   </div>
   <h1 tabindex="-1">Trace the spiral</h1>
   <p class="lede" data-copy="DRAW_INSTRUCTION"></p>
-  <canvas class="pad" id="draw-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas>
+  <div class="pad"><canvas id="draw-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas></div>
+  <div role="status">
+    <p class="card status" id="draw-status" hidden>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/></svg>
+      <span><strong></strong><span></span></span>
+    </p>
+  </div>
   <div class="actions pair">
     <button type="button" class="btn btn-secondary" id="draw-restart">Start over</button>
     <button type="button" class="btn btn-primary" id="draw-done" disabled>Done</button>
@@ -229,7 +235,7 @@
       <span class="on"></span><span></span><span></span>
     </div>
     <p class="lede" data-copy="COLLECT_DRAW_INSTRUCTION"></p>
-    <canvas class="pad" id="collect-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas>
+    <div class="pad"><canvas id="collect-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas></div>
     <div class="actions pair">
       <button type="button" class="btn btn-secondary" id="collect-redo">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7 7 0 1 0 1.6-7.3L4 10"/></svg>Redo this spiral
