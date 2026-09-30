@@ -1,7 +1,7 @@
-// Assert-based check for the pure parts of store.js that can run outside a
-// browser (no IndexedDB in Node - those paths need real-browser testing).
-// Not a framework - just the smallest thing that fails when the logic
-// breaks. Run: node app/tools/store-check.mjs
+// assert-based check for the pure parts of store.js that can run outside a
+// browser (no IndexedDB in Node, so those paths need real-browser testing).
+// not a framework - just the smallest thing that fails when the logic
+// breaks. run: node app/tools/store-check.mjs
 
 import assert from "node:assert/strict";
 import { newSubjectId, getPrefs, setPrefs } from "../store.js";

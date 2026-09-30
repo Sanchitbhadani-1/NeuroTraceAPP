@@ -16,8 +16,8 @@
   <link rel="preload" href="fonts/newsreader-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <script>
-    // Before first paint: the saved look, so the page never flashes the wrong
-    // theme or plays motion someone switched off. Same rules as motion.js
+    // before first paint: the saved look, so the page never flashes the wrong
+    // theme or plays motion someone switched off. same rules as motion.js
     // applyMotion() and app.js applyTheme().
     try {
       const p = JSON.parse(localStorage.getItem("neurotrace:prefs") || "{}"), r = document.documentElement;
@@ -29,9 +29,9 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-<!-- One <section class="screen"> per route (#welcome, #home, ...); app.js
-     shows one at a time. Full sentences are filled in from copy.js through
-     data-copy (Global Constraint 10); the markup holds only headings and
+<!-- one <section class="screen"> per route (#welcome, #home, ...) - app.js
+     shows one at a time. full sentences get filled in from copy.js through
+     data-copy (Global Constraint 10), the markup only holds headings and
      control labels. -->
 
 <!-- ================= personal check-in (iPhone first) ================= -->
@@ -406,7 +406,7 @@
   </div>
 </section>
 
-<!-- The tab bar: only on the three tab screens (app.js). -->
+<!-- the tab bar: only on the three tab screens (app.js). -->
 <nav class="tabbar" id="tabbar" aria-label="Main" hidden>
   <span class="tab-lens" aria-hidden="true"></span>
   <a href="#home" data-tab="home">
@@ -422,12 +422,12 @@
     <span>About</span>
   </a>
 </nav>
-<!-- Compact title bar: the screen's h1, shown once the large title scrolls away. -->
+<!-- compact title bar: the screen's h1, shown once the large title scrolls away. -->
 <div class="compact-bar" id="compact-bar" aria-hidden="true"><span></span></div>
 
 <div class="toast" id="toast" role="status"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span></span></div>
 
-<!-- Shown while a finished check-in is scored and saved (motion.js measuring()). -->
+<!-- shown while a finished check-in is scored and saved (motion.js measuring()). -->
 <div class="measuring" id="measuring" role="status" hidden>
   <div class="measuring-card">
     <span class="measuring-mascot" data-mascot="thinking"></span>

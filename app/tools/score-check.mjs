@@ -1,9 +1,9 @@
-// Assert-based check for score.js and copy.js's measure metadata. Not a
+// assert-based check for score.js and copy.js's measure metadata. not a
 // framework - just the smallest thing that fails when the scoring logic
-// breaks. Run: node app/tools/score-check.mjs
+// breaks. run: node app/tools/score-check.mjs
 //
-// An uncaught AssertionError already exits non-zero with a stack pointing at
-// the failing line, so no wrapping try/catch is needed here.
+// an uncaught AssertionError already exits non-zero with a stack pointing at
+// the failing line, so no try/catch wrapping needed here.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -19,8 +19,8 @@ import { SPIRAL_FEATURE_ORDER } from "../nt-features.js";
 
 const ORDER = ["f0", "f1"];
 
-// A "score" reference of 1000 values, `below` of which are less than 0.5 -
-// gives fractionBelow(0.5, ...) an exact, easy-to-name fraction.
+// a "score" reference of 1000 values, `below` of which are less than 0.5 -
+// so fractionBelow(0.5, ...) gives an exact fraction that's easy to name.
 function scoreArray(below) {
   return Array(below).fill(0).concat(Array(1000 - below).fill(1));
 }
@@ -31,7 +31,7 @@ function block({ n = 40, mean = [0, 0], sd = [1, 1], score = scoreArray(500) } =
 
 // --- tier cut points ---------------------------------------------------
 // weights = 0 makes score depend only on bias (sigmoid(0) = 0.5), so the
-// bracket's score array alone controls scorePct - and therefore the tier.
+// bracket's score array alone controls scorePct - and that sets the tier.
 const flatModel = { version: 2, featureOrder: ORDER, weights: [0, 0], bias: 0 };
 const perTrial = [{ f0: 5, f1: 5 }];
 
@@ -79,7 +79,7 @@ assert.equal(bracketFor(refBrackets, "70s").block, refBrackets.brackets["70s"]);
   const reference = { minBracketN: 1, deviceMatched: false, trialsPerSession: 1,
     brackets: { all: block({ sd: [0, NaN] }) } };
   const r = scoreSession([{ f0: 5, f1: 5 }], model, reference, null);
-  // Both z forced to 0 despite finite features -> zsum stays at bias -> score 0.5.
+  // both z forced to 0 even though the features are finite -> zsum stays at bias -> score 0.5.
   assert.equal(r.score, 0.5);
 }
 
