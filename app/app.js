@@ -6,8 +6,9 @@
 import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "./nt-features.js";
 import { checkScoringFiles, scoreSession } from "./score.js";
 import * as copy from "./copy.js";
-import { getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment } from "./store.js";
+import { getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment, clearAssessments, saveCollected, listCollected, markExported, subjects, newSubjectId } from "./store.js";
 import { createPad, spiralPoints } from "./pad.js";
+import { reduced, applyMotion, swap, moveLens, reveal, countUp, watchTitle, toast, mountMascots, measuring } from "./motion.js";
 
 // ---------- spiral art (the guide spiral itself is pad.js's spiralPoints) ----------
 
@@ -113,14 +114,35 @@ async function route() {
 
 // Per-screen setup, run each time the screen is shown.
 const onShow = {};
+const TABS = new Set(["home", "settings", "about-app"]);
 
+const TAB_ORDER = ["home", "settings", "about-app"];
+const TITLED = new Set([...TAB_ORDER, "results"]); // screens whose large title collapses on scroll
+
+// Tabs slide towards the tab you picked; everything else rises into place.
 function show(name, param) {
+  const from = TAB_ORDER.indexOf(previous), to = TAB_ORDER.indexOf(name);
+  const kind = from >= 0 && to >= 0 && from !== to ? (to > from ? "left" : "right") : "fade";
+  swap(() => showNow(name, param), { kind });
+}
+
+function showNow(name, param) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
   const screen = document.getElementById(`screen-${name}`);
   document.title = `${screen.dataset.title} — NeuroTrace`;
   onShow[name]?.(param);
   scrollTo(0, 0);
   screen.querySelector("h1").focus({ preventScroll: true });
+  // The tab bar belongs to the three tab screens only; a check-in or a
+  // collection session is a focused task with its own Back/Cancel.
+  const tabbar = document.getElementById("tabbar");
+  tabbar.hidden = !TABS.has(name);
+  for (const a of tabbar.querySelectorAll("a")) {
+    if (a.dataset.tab === name) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  }
+  moveLens(tabbar);
+  watchTitle(TITLED.has(name) ? screen.querySelector("h1") : null);
   previous = name;
 }
 
@@ -176,14 +198,16 @@ aboutContinue.addEventListener("click", () => {
 });
 
 // ---------- draw ----------
-// One check-in is reference.trialsPerSession spirals, averaged - the user is
-// measured the same way the reference group was.
+// One check-in is three spirals, averaged (handoff §6: averaging three
+// drawings cuts within-person noise). Collection mode also records three, so
+// the device-matched reference will be built the same way.
+const CHECKIN_TRIALS = 3;
 
 const drawDone = document.getElementById("draw-done");
 const drawStatus = document.getElementById("draw-status");
 const drawSheet = document.getElementById("draw-pad").parentElement;
 let trials = []; // this check-in's finished spirals: { trace, strokeStarts, features }
-let trialsWanted = 1;
+let trialsWanted = CHECKIN_TRIALS;
 
 const pad = createPad(document.getElementById("draw-pad"), {
   onInk({ cleared }) {
@@ -194,19 +218,23 @@ const pad = createPad(document.getElementById("draw-pad"), {
 });
 
 // First sentence in bold, as in Draw.dc.html's too-short card.
-function showDrawStatus(sentence) {
-  drawStatus.hidden = !sentence;
+function showDrawStatus(sentence) { showStatus(drawStatus, sentence); }
+function showStatus(box, sentence) {
+  box.hidden = !sentence;
   if (!sentence) return;
+  box.classList.remove("shake");
+  void box.offsetWidth; // replay the nudge for a second too-short in a row
+  box.classList.add("shake");
   const cut = sentence.indexOf(".") + 1;
-  drawStatus.querySelector("strong").textContent = sentence.slice(0, cut);
-  drawStatus.querySelector("strong + span").textContent = sentence.slice(cut);
+  box.querySelector("strong").textContent = sentence.slice(0, cut);
+  box.querySelector("strong + span").textContent = sentence.slice(cut);
 }
 
 function newTrial() {
   const n = trials.length + 1;
   document.getElementById("draw-count").textContent = `Spiral ${n} of ${trialsWanted}`;
   const progress = document.getElementById("draw-progress");
-  progress.innerHTML = Array.from({ length: trialsWanted }, (_, i) => (i < n ? '<span class="on"></span>' : "<span></span>")).join("");
+  progress.innerHTML = Array.from({ length: trialsWanted }, (_, i) => (i < n ? `<span class="on${i === n - 1 ? " now" : ""}"></span>` : "<span></span>")).join("");
   progress.setAttribute("aria-valuemax", trialsWanted);
   progress.setAttribute("aria-valuenow", trials.length);
   progress.setAttribute("aria-valuetext", `${trials.length} of ${trialsWanted}`);
@@ -217,9 +245,7 @@ function newTrial() {
   showDrawStatus(null);
 }
 
-onShow.draw = async () => {
-  const { reference } = await scoring;
-  trialsWanted = reference.trialsPerSession;
+onShow.draw = () => {
   trials = [];
   newTrial();
 };
@@ -235,12 +261,19 @@ drawDone.addEventListener("click", async () => {
     return showDrawStatus(copy.TOO_SHORT); // the ink stays so they can see what happened
   }
   trials.push({ trace, strokeStarts: pad.strokeStarts(), features });
-  if (trials.length < trialsWanted) return newTrial();
+  navigator.vibrate?.(12); // Android only; iOS ignores it
+  if (trials.length < trialsWanted) {
+    toast(copy.SPIRAL_SAVED(trials.length));
+    drawSheet.classList.add("wipe"); // the finished spiral fades out, the next sheet fades in
+    setTimeout(newTrial, reduced() ? 0 : 160);
+    return;
+  }
 
   // Scoring and saving are async: lock the pad so no new ink can reach
   // onInk and re-enable Done for a second trial or a second record.
   drawDone.disabled = true;
   drawSheet.inert = true;
+  const finish = measuring();
   const { model, reference } = await scoring;
   const result = scoreSession(trials.map((t) => t.features), model, reference, choice.bracket);
   const record = {
@@ -260,9 +293,27 @@ drawDone.addEventListener("click", async () => {
   } catch (err) {
     console.warn("NeuroTrace: couldn't save this check-in to history", err); // still show the result
   }
+  const hide = await finish();
   current = record;
   location.hash = "#results";
+  hide?.();
 });
+
+drawSheet.addEventListener("animationend", () => drawSheet.classList.remove("wipe"));
+
+// A soft glow under the pen tip while it touches the sheet.
+const penTip = el("span", "pen-tip");
+drawSheet.append(penTip);
+const canvasEl = document.getElementById("draw-pad");
+const movePenTip = (e) => {
+  const r = canvasEl.getBoundingClientRect();
+  penTip.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top}px)`;
+};
+canvasEl.addEventListener("pointerdown", (e) => { movePenTip(e); penTip.classList.add("on"); });
+canvasEl.addEventListener("pointermove", movePenTip);
+for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+  canvasEl.addEventListener(type, () => penTip.classList.remove("on"));
+}
 
 // ---------- results ----------
 // Renders a stored record, never a live computation: a check-in reopened from
@@ -292,7 +343,14 @@ function measureRow(key, frac) {
   const dot = el("span", "track-dot");
   dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
   track.append(dot);
-  row.append(el("span", "measure-name", copy.MEASURES[key].name), el("span", "sub", copy.measureSentence(key, frac)), track);
+  // copy.measureSentence stays the one source of the wording; the number is
+  // split out so it can count up as the dot travels.
+  const [, lead, n, tail] = copy.measureSentence(key, frac).match(/^(.*?)(\d+)(%.*)$/);
+  const sentence = el("span", "sub");
+  const num = el("span", "num", n);
+  sentence.append(lead, num, tail);
+  row.dataset.n = n;
+  row.append(el("span", "measure-name", copy.MEASURES[key].name), sentence, track);
   return row;
 }
 
@@ -343,13 +401,15 @@ function renderResults(rec) {
     drawingCard(rec),
     every,
   );
+  reveal($("results-body").children);
+  reveal($("results-body").querySelectorAll(".measure"), (row) => countUp(row.querySelector(".num"), Number(row.dataset.n)));
 }
 
 // ---------- your drawing: raw vs filtered, replay, speed ----------
 
 function drawingCard(rec) {
-  // ponytail: shows the first spiral only; add a spiral picker when trialsPerSession > 1 ships.
-  const trial = rec.trials?.[0];
+  const drawn = (rec.trials ?? []).filter((t) => t.samples);
+  const trial = drawn[0];
   drawing = null;
   if (!trial?.samples) return card("Your drawing", el("p", "sub", copy.DRAWING_PRUNED));
 
@@ -380,7 +440,30 @@ function drawingCard(rec) {
   replay.addEventListener("click", () => replayDrawing(drawing));
   // Painted once the card is in the document and has a size.
   requestAnimationFrame(() => paintDrawing(drawing));
-  return card("Your drawing", canvas, legend, replay, el("hr"),
+
+  // With more than one spiral, a segmented pad picks which one is drawn.
+  let picker = "";
+  if (drawn.length > 1) {
+    picker = el("div", "segmented");
+    picker.setAttribute("role", "radiogroup");
+    picker.setAttribute("aria-label", "Which spiral to show");
+    picker.style.gridTemplateColumns = `repeat(${drawn.length}, minmax(0, 1fr))`;
+    picker.style.setProperty("--n", drawn.length);
+    drawn.forEach((_, i) => {
+      picker.insertAdjacentHTML("beforeend",
+        `<label class="segment"><input type="radio" name="which-spiral" value="${i}"${i ? "" : " checked"}><span>Spiral ${i + 1}</span></label>`);
+    });
+    picker.addEventListener("change", ({ target }) => {
+      try {
+        drawing.prepared = prepareDrawing(drawn[Number(target.value)]);
+      } catch (err) {
+        return console.warn("NeuroTrace: couldn't prepare that spiral", err);
+      }
+      cancelAnimationFrame(drawing.frame);
+      paintDrawing(drawing);
+    });
+  }
+  return card("Your drawing", picker, canvas, legend, replay, el("hr"),
     el("h3", null, "Speed along the line"), el("p", "sub", copy.SPEED_CAPTION), speed);
 }
 
@@ -512,12 +595,14 @@ function historyWhen(ts) {
   return `${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}, ${time}`;
 }
 
+const historyEmpty = document.querySelector("#history .empty"); // index.html's empty state
+
 onShow.home = async () => {
   const records = await listAssessments().catch((err) => {
     console.warn("NeuroTrace: couldn't read history", err);
     return [];
   });
-  if (!records.length) return; // index.html's empty state stays
+  if (!records.length) return $("history").replaceChildren(historyEmpty);
   const list = el("div", "card history-list");
   for (const rec of records) {
     const row = el("a", "history-row");
@@ -530,6 +615,351 @@ onShow.home = async () => {
   }
   $("history").replaceChildren(list);
 };
+
+// ---------- collection mode (handoff B2, docs/COLLECTED_FORMAT.md) ----------
+// A facilitator records three spirals per participant for the device-matched
+// reference. Nothing is scored or shown; each session is saved on the iPad
+// and leaves it only through Export.
+
+const COLLECT_TRIALS = 3;
+let pendingId = null; // the ID offered to the next new participant
+
+function startSession(subjectId, session) {
+  collecting = { subjectId, session, trials: [] };
+  location.hash = "#collect-details";
+}
+
+onShow.collect = async () => {
+  let subs = [], sessions = [];
+  try {
+    [subs, sessions] = await Promise.all([subjects(), listCollected()]);
+  } catch (err) {
+    console.warn("NeuroTrace: couldn't read collected sessions", err);
+  }
+  collecting = null;
+  pendingId = newSubjectId(new Set(subs.map((s) => s.subjectId)));
+  $("collect-new-id").textContent = pendingId;
+
+  const list = $("collect-returning");
+  if (!subs.length) list.replaceChildren(el("p", "sub", copy.NO_PARTICIPANTS));
+  else {
+    const dateFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+    list.replaceChildren(...subs.map(({ subjectId, sessions: n, lastAt }) => {
+      const row = el("button", "history-row returning-row");
+      row.type = "button";
+      const text = el("span", "history-text");
+      text.append(el("span", "history-when mono", subjectId),
+        el("span", "sub", `${n} session${n === 1 ? "" : "s"}, last on ${dateFmt.format(new Date(lastAt))}`));
+      row.append(text);
+      row.insertAdjacentHTML("beforeend", '<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
+      row.addEventListener("click", () => startSession(subjectId, n + 1));
+      return row;
+    }));
+  }
+
+  const waiting = sessions.filter((s) => !s.exported);
+  $("collect-unexported").hidden = !waiting.length;
+  $("unexported-title").textContent = `${waiting.length} session${waiting.length === 1 ? "" : "s"} not exported yet`;
+};
+$("collect-start").addEventListener("click", () => startSession(pendingId, 1));
+$("collect-export-all").addEventListener("click", async () => {
+  const waiting = (await listCollected()).filter((s) => !s.exported);
+  if (!waiting.length) return;
+  const day = new Date().toISOString().slice(0, 10);
+  if (await exportSessions(waiting, `neurotrace-export-${day}.json`)) onShow.collect();
+});
+
+// ---- details: consent, age, hand, diagnosis (in that order) ----
+
+const detailsHelp = $("details-help");
+const detailsBegin = $("details-begin");
+const radio = (name) => document.querySelector(`#details-form input[name="${name}"]:checked`)?.value;
+
+function readDetails() {
+  const age = Number($("c-age").value);
+  const med = $("c-med").value;
+  const dx = radio("c-dx");
+  return {
+    consent: $("c-consent").checked,
+    age: Number.isInteger(age) && age >= 18 && age <= 110 ? age : null,
+    hand: radio("c-hand"),
+    diagnosis: dx,
+    medicationHoursAgo: dx === "parkinsons" && med !== "" && Number(med) >= 0 ? Number(med) : null,
+  };
+}
+
+function syncDetails() {
+  const d = readDetails();
+  $("c-bracket").textContent = d.age ? copy.bracketNote(d.age) : "";
+  $("c-med-row").hidden = d.diagnosis !== "parkinsons";
+  const missing = [!d.consent && "consent", !d.age && "an age from 18 to 110", !d.hand && "the drawing hand", !d.diagnosis && "a diagnosis"].filter(Boolean);
+  detailsBegin.disabled = missing.length > 0;
+  detailsHelp.hidden = !missing.length;
+  detailsHelp.textContent = missing.length ? `Still needed: ${missing.join(", ")}.` : "";
+}
+
+onShow["collect-details"] = () => {
+  $("details-session").innerHTML = `<span class="mono">${collecting.subjectId}</span>, session ${collecting.session}`;
+  if (collecting.details) return syncDetails(); // coming back from the spirals keeps the answers
+  $("c-consent").checked = false;
+  $("c-age").value = "";
+  $("c-med").value = "";
+  document.querySelectorAll("#details-form input[type=radio]").forEach((r) => (r.checked = false));
+  syncDetails();
+};
+$("details-form").addEventListener("input", syncDetails);
+$("details-form").addEventListener("change", syncDetails);
+detailsBegin.addEventListener("click", () => {
+  collecting.details = readDetails();
+  collecting.trials = [];
+  location.hash = "#collect-draw";
+});
+
+// ---- three spirals ----
+
+const collectNext = $("collect-next");
+const collectStatus = $("collect-status");
+const collectSheet = $("collect-pad").parentElement;
+const collectPad = createPad($("collect-pad"), {
+  onInk({ cleared }) {
+    collectNext.disabled = collectSheet.inert || !collectPad.hasInk();
+    showStatus(collectStatus, cleared ? copy.RESIZE_CLEARED : null);
+    if (cleared) collectPad.showStartDot(true);
+  },
+});
+
+function newCollectTrial() {
+  const done = collecting.trials.length, n = done + 1;
+  $("collect-count").textContent = `Spiral ${n} of ${COLLECT_TRIALS}`;
+  $("collect-session").innerHTML = `<span class="mono">${collecting.subjectId}</span>, session ${collecting.session}`;
+  const progress = $("collect-progress");
+  progress.innerHTML = Array.from({ length: COLLECT_TRIALS }, (_, i) => (i < n ? `<span class="on${i === n - 1 ? " now" : ""}"></span>` : "<span></span>")).join("");
+  progress.setAttribute("aria-valuenow", done);
+  progress.setAttribute("aria-valuetext", `${done} of ${COLLECT_TRIALS}`);
+  collectNext.textContent = n === COLLECT_TRIALS ? "Finish" : "Next spiral";
+  collectPad.reset();
+  collectPad.showStartDot(true);
+  collectSheet.inert = false;
+  collectNext.disabled = true;
+  showStatus(collectStatus, null);
+}
+
+onShow["collect-draw"] = () => {
+  if (!collecting.details) return location.replace("#collect-details");
+  collecting.trials = [];
+  newCollectTrial();
+};
+
+$("collect-redo").addEventListener("click", newCollectTrial);
+$("collect-back").addEventListener("click", (e) => {
+  const drawnSome = collecting?.trials.length || collectPad.hasInk();
+  if (drawnSome && !confirm(copy.LEAVE_SESSION)) e.preventDefault();
+});
+
+collectNext.addEventListener("click", async () => {
+  const trace = collectPad.trace(collecting.details.hand);
+  try {
+    featuresFromTrace(trace); // validity only - nothing is scored or kept from this
+  } catch {
+    return showStatus(collectStatus, copy.TOO_SHORT);
+  }
+  collecting.trials.push(trace);
+  navigator.vibrate?.(12);
+  if (collecting.trials.length < COLLECT_TRIALS) {
+    toast(copy.SPIRAL_SAVED(collecting.trials.length));
+    return newCollectTrial();
+  }
+
+  collectNext.disabled = true;
+  collectSheet.inert = true;
+  const { subjectId, session, details, trials: traces } = collecting;
+  const record = {
+    formatVersion: 1,
+    subjectId,
+    session,
+    collectedAt: new Date().toISOString(),
+    deviceLabel: traces[0].deviceLabel,
+    inputType: traces[0].inputType,
+    hand: details.hand,
+    age: details.age,
+    diagnosis: details.diagnosis,
+    medicationHoursAgo: details.medicationHoursAgo,
+    consent: true,
+    trials: traces.map((tr, i) => ({
+      trial: i + 1,
+      task: "spiral",
+      samples: tr.samples.map(({ t, x, y, pressure }) => ({ t, x, y, pressure })),
+    })),
+    exported: false,
+  };
+  try {
+    record.id = await saveCollected(record);
+  } catch (err) {
+    // Losing a participant's spirals is the one failure that matters here:
+    // keep the session in memory so it can still be exported by hand.
+    console.error("NeuroTrace: couldn't save the session on this iPad", err);
+  }
+  collecting.saved = record;
+  location.hash = "#collect-done";
+});
+
+// ---- done: summary and export ----
+
+onShow["collect-done"] = () => {
+  const s = collecting.saved;
+  if (!s) return location.replace("#collect");
+  const facts = [["Participant", s.subjectId], ["Session", String(s.session)], ["Age", String(s.age)],
+    ["Drawing hand", s.hand === "left" ? "Left" : "Right"], ["Diagnosis", copy.DIAGNOSES[s.diagnosis]],
+    ["Input", { pencil: "Apple Pencil", touch: "Finger", mouse: "Mouse" }[s.inputType] ?? s.inputType]];
+  const grid = el("dl", "card facts");
+  for (const [k, v] of facts) {
+    const cell = el("div");
+    cell.append(el("dt", "sub", k), el("dd", null, v));
+    grid.append(cell);
+  }
+  $("done-summary").replaceChildren(grid);
+};
+$("done-export").addEventListener("click", async () => {
+  const s = collecting?.saved;
+  if (s) await exportSessions([s], `${s.subjectId}-s${s.session}.json`);
+});
+
+// The share sheet where there is one (AirDrop, Files, Mail on iPad),
+// otherwise a download. One session exports as an object, several as an
+// array - both shapes collected.py reads.
+async function exportSessions(sessions, filename) {
+  const clean = sessions.map(({ id, exported, ...s }) => s);
+  const file = new File([JSON.stringify(clean.length === 1 ? clean[0] : clean, null, 2)], filename, { type: "application/json" });
+  try {
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: filename });
+    else download(file);
+  } catch (err) {
+    if (err.name === "AbortError") return false; // they closed the share sheet
+    download(file);
+  }
+  const ids = sessions.map((s) => s.id).filter((id) => id != null);
+  if (ids.length) await markExported(ids).catch((err) => console.warn("NeuroTrace: couldn't mark sessions exported", err));
+  toast(copy.EXPORTED);
+  return true;
+}
+
+function download(file) {
+  const url = URL.createObjectURL(file);
+  const a = el("a");
+  a.href = url;
+  a.download = file.name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------- settings ----------
+
+// "auto" leaves the choice to prefers-color-scheme; light/dark pin it via
+// data-theme, which styles.css keys the token sets to.
+function applyTheme(theme) {
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+}
+
+$("settings-age").innerHTML = copy.AGE_CHOICES
+  .map(({ label }) => `<label class="chip"><input type="radio" name="s-age" value="${label}"><span>${label}</span></label>`)
+  .join("");
+
+const check = (name, value) =>
+  document.querySelectorAll(`#screen-settings input[name="${name}"]`).forEach((r) => (r.checked = r.value === value));
+
+// Order matches copy.ACCENTS; styles.css holds each accent's light and dark values.
+const ACCENT_IDS = ["blue", "indigo", "violet", "teal", "amber", "rose", "graphite"];
+$("accent-choices").innerHTML = copy.ACCENTS
+  .map((name, i) => `<label class="accent-option" data-accent="${ACCENT_IDS[i]}"><input type="radio" name="accent" value="${ACCENT_IDS[i]}" aria-label="${name}"><span class="accent-dot"></span></label>`)
+  .join("");
+
+const accentName = (id) => copy.ACCENTS[Math.max(0, ACCENT_IDS.indexOf(id))];
+
+function applyAccent(accent) {
+  if (accent && accent !== "blue") document.documentElement.dataset.accent = accent;
+  else delete document.documentElement.dataset.accent;
+}
+
+onShow.settings = () => {
+  const { ageChoice, hand, theme, accent, motion } = getPrefs();
+  check("s-age", ageChoice);
+  check("s-hand", hand);
+  check("theme", theme);
+  check("accent", accent);
+  $("accent-current").textContent = accentName(accent);
+  check("motion", motion);
+  $("delete-status").textContent = "";
+};
+
+// Every change saves at once - there is no Save button to forget.
+// A new theme or accent spreads out from the control that was tapped.
+$("screen-settings").addEventListener("change", ({ target }) => {
+  const { value } = target;
+  const r = target.closest("label").getBoundingClientRect();
+  const from = { kind: "theme", x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  if (target.name === "s-age") setPrefs({ ageChoice: value });
+  if (target.name === "s-hand") setPrefs({ hand: value });
+  if (target.name === "theme") {
+    setPrefs({ theme: value });
+    swap(() => applyTheme(value), from);
+  }
+  if (target.name === "accent") {
+    setPrefs({ accent: value });
+    $("accent-current").textContent = accentName(value);
+    swap(() => applyAccent(value), from);
+  }
+  if (target.name === "motion") {
+    setPrefs({ motion: value });
+    applyMotion(value);
+  }
+  toast(copy.SAVED);
+});
+
+$("delete-all").addEventListener("click", async () => {
+  if (!confirm(copy.DELETE_CONFIRM)) return;
+  try {
+    await clearAssessments();
+    current = null;
+    $("delete-status").textContent = copy.DELETED;
+  } catch (err) {
+    console.warn("NeuroTrace: couldn't delete check-ins", err);
+    $("delete-status").textContent = copy.DELETE_FAILED;
+  }
+});
+
+// ---------- about ----------
+
+$("how-steps").replaceChildren(...copy.HOW_STEPS.map((step) => el("li", null, step)));
+
+onShow["about-app"] = async () => {
+  try {
+    const { reference } = await scoring;
+    const all = reference.brackets.all;
+    $("about-reference").textContent = copy.referenceSentence({
+      referenceN: all.n, bracketKey: "all", deviceMatched: reference.deviceMatched === true,
+    });
+    $("about-reference").hidden = false;
+  } catch {
+    $("about-reference").hidden = true; // no reference file, nothing honest to say here
+  }
+};
+
+applyTheme(getPrefs().theme);
+applyAccent(getPrefs().accent);
+applyMotion(getPrefs().motion);
+matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", () => applyMotion(getPrefs().motion));
+
+// ---------- motion setup ----------
+
+const tabbarEl = $("tabbar");
+addEventListener("resize", () => moveLens(tabbarEl));
+$("measuring-steps").replaceChildren(...copy.MEASURE_STEPS.map((step) => el("li", null, step)));
+mountMascots();
+// The welcome pen dot is SMIL, which CSS can't stop - pause it by hand.
+if (reduced()) document.querySelectorAll(".hero svg").forEach((svg) => svg.pauseAnimations());
 
 // ---------- error ----------
 
