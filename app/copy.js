@@ -157,3 +157,49 @@ export const DRAWING_PRUNED = "The drawing itself is kept only for your three mo
 // Variant A (design canvas) - the plain line under the results verdict.
 // Same claim as CONSENT_UNDERSTAND, ClaimsRules-safe.
 export const RESULT_SUMMARY = "This is a measurement of how you drew today, not a diagnosis.";
+
+// Settings and About tabs - new copy, written against ClaimsRules: it says
+// what the software does and where the comparison comes from, nothing more.
+export const SETTINGS_DETAILS_HELP = "Used to choose who you are compared with. Changes apply to your next check-in.";
+export const APPEARANCE_HELP = "Automatic follows your device's setting.";
+export const DELETE_HELP = "Removes every check-in saved on this device. This can't be undone.";
+export const DELETE_CONFIRM = "Delete all check-ins? This can't be undone.";
+export const DELETED = "All check-ins deleted.";
+export const DELETE_FAILED = "Couldn't delete your check-ins. Try again.";
+export const COLLECTION_HELP = "For the research team. Records spirals for the reference group and never shows results.";
+export const HOW_STEPS = [
+  "Trace a spiral on the screen with your finger or a stylus.",
+  "NeuroTrace measures 12 things about the line: its shape, speed, smoothness and tremor.",
+  "Each measure is placed among a reference group of healthy adults.",
+];
+export const CREDIT = "Made by Sanchit Bhadani and Aryan Modi for the 2026 Congressional App Challenge.";
+
+// Motion, accent colours and the measuring overlay - new copy.
+export const ACCENT_HELP = "Changes the colour of buttons, links and highlights.";
+export const MOTION_HELP = "Reduced turns off moving effects. Automatic follows your device's setting.";
+export const SAVED = "Saved";
+export const SPIRAL_SAVED = (n) => `Spiral ${n} saved`;
+export const MEASURING = "Measuring your spiral";
+export const MEASURE_STEPS = [
+  "Tidying up the line",
+  "Smoothing out screen jitter",
+  "Measuring 12 things about it",
+  "Comparing with the reference group",
+];
+// Names match the swatch order in index.html.
+export const ACCENTS = ["Blue", "Indigo", "Violet", "Teal", "Amber", "Rose", "Graphite"];
+
+// Collection mode - new copy for the facilitator (docs/COLLECTED_FORMAT.md).
+export const COLLECT_CONSENT = "Written consent for this participant is on file.";
+export const DIAGNOSIS_NOTE =
+  "Only participants with no diagnosis are added to the healthy reference. Everyone else is kept, labelled and left out of it.";
+export const MED_HELP = "A rough answer is fine. Leave it empty if unsure.";
+export const NO_PARTICIPANTS = "No participants on this iPad yet.";
+export const UNEXPORTED_HELP = "They stay on this iPad until exported. Export before clearing Safari data.";
+export const EXPORTED = "Exported";
+export const LEAVE_SESSION = "Leave this session? The spirals drawn so far will be discarded.";
+export const DIAGNOSES = { none: "None", parkinsons: "Parkinson\u2019s", essential_tremor: "Essential tremor", other: "Other" };
+export const bracketNote = (age) =>
+  age < 60 ? "Counts toward the under-60 reference group." :
+  age >= 80 ? "Counts toward the 80+ reference group." :
+  `Counts toward the ${Math.floor(age / 10) * 10}s reference group.`;

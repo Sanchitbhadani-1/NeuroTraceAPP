@@ -90,6 +90,19 @@ export async function getAssessment(id) {
   }
 }
 
+// Settings > Delete all check-ins. Collected research sessions are a separate
+// store and are left alone.
+export async function clearAssessments() {
+  const db = await openDb();
+  try {
+    const tx = db.transaction(STORE_ASSESSMENTS, "readwrite");
+    tx.objectStore(STORE_ASSESSMENTS).clear();
+    await txDone(tx);
+  } finally {
+    db.close();
+  }
+}
+
 // ---------- collected (research-mode sessions) ----------
 
 export async function saveCollected(session) {
@@ -161,7 +174,7 @@ export function newSubjectId(existing) {
 // ---------- prefs (localStorage) ----------
 
 const PREFS_KEY = "neurotrace:prefs";
-const PREFS_DEFAULTS = { onboarded: false, consented: false, ageChoice: null, hand: "right" };
+const PREFS_DEFAULTS = { onboarded: false, consented: false, ageChoice: null, hand: "right", theme: "auto", accent: "blue", motion: "auto" };
 
 // Private mode / blocked storage throws on read or write - never let that
 // take down the app, just fall back to defaults.
