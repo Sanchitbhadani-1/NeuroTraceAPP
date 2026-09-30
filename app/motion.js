@@ -1,28 +1,28 @@
-// Motion and microinteractions: page transitions, the tab bar's sliding pill,
+// motion and microinteractions: page transitions, the tab bar's sliding pill,
 // scroll reveals, count-ups, the collapsing title bar, toasts,
-// the "measuring" overlay and the spiral mascot. No app state lives here.
+// the "measuring" overlay and the spiral mascot. no app state lives here.
 //
-// Every effect answers to one switch: <html data-motion="reduce"> (set before
+// every effect answers to one switch: <html data-motion="reduce"> (set before
 // first paint in index.html from Settings > Motion or the device setting).
-// CSS stops all animation under it; the JS helpers below check reduced() and
-// jump straight to the end state.
+// CSS stops all animation under it, and the JS helpers below check reduced()
+// and jump straight to the end state.
 
 const root = document.documentElement;
 const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
 
 export const reduced = () => root.dataset.motion === "reduce";
 
-// "auto" follows the device; "full" and "reduce" override it.
+// "auto" follows the device, "full" and "reduce" override it.
 export function applyMotion(pref) {
   root.dataset.motion = pref === "reduce" || (pref !== "full" && motionQuery.matches) ? "reduce" : "full";
 }
 
 // ---------- page transitions (View Transitions API, where it exists) ----------
 
-// kind: "fade" | "left" | "right" | "theme". For "theme", (x, y) is where the
+// kind: "fade" | "left" | "right" | "theme". for "theme", (x, y) is where the
 // colour change spreads from - the control that was tapped.
 export function swap(update, { kind = "fade", x, y } = {}) {
-  // A hidden page can't start a transition; the update just runs.
+  // a hidden page can't start a transition so the update js runs.
   if (reduced() || !document.startViewTransition || document.visibilityState !== "visible") return update();
   root.dataset.vt = kind;
   if (x != null) {
@@ -30,12 +30,12 @@ export function swap(update, { kind = "fade", x, y } = {}) {
     root.style.setProperty("--vt-y", `${y}px`);
   }
   const t = document.startViewTransition(update);
-  // A transition interrupted by the next one rejects `ready`; the update
-  // still ran, so there is nothing to recover - just don't leak the error.
+  // a transition interrupted by the next one rejects `ready`. the update
+  // still ran so there's nothing to recover - js don't leak the error.
   t.ready.catch(() => {});
   t.finished.finally(() => delete root.dataset.vt);
 }
-if (document.startViewTransition) root.classList.add("vt-ok"); // the per-screen CSS entrance steps aside
+if (document.startViewTransition) root.classList.add("vt-ok"); // so the per-screen CSS entrance steps aside
 
 // ---------- tab bar: a pill that slides to the current tab's icon ----------
 
@@ -52,8 +52,8 @@ export function moveLens(nav) {
 // ---------- reveal on scroll, count-ups ----------
 
 let revealObserver;
-// Adds .in to each node the first time it scrolls into view (staggered by
-// --i), then calls onIn(node). Under reduced motion, everything is simply in.
+// adds .in to each node the first time it scrolls into view (staggered by
+// --i), then calls onIn(node). under reduced motion everything is js in.
 export function reveal(nodes, onIn) {
   revealObserver ??= new IntersectionObserver((entries) => {
     for (const { isIntersecting, target } of entries) {
@@ -125,7 +125,7 @@ const SHELL = Array.from({ length: 161 }, (_, i) => {
 }).join("");
 
 // mood: "idle" (bobs and blinks) | "thinking" (traces its own shell, looks
-// around). It never reacts to a result - Constraint 2 covers faces too.
+// around). it never reacts to a result - Constraint 2 covers faces too.
 export function mascot(mood = "idle") {
   return `<svg class="mascot ${mood}" viewBox="0 0 340 340" aria-hidden="true" focusable="false">` +
     `<g class="m-body"><path class="m-shell" pathLength="1" d="${SHELL}"/>` +
@@ -134,7 +134,7 @@ export function mascot(mood = "idle") {
     "</g></svg>";
 }
 
-// Fills every [data-mascot] slot; a tap makes it spin (a small easter egg).
+// fills every [data-mascot] slot. tapping it makes it spin (a small easter egg).
 export function mountMascots(scope = document) {
   for (const slot of scope.querySelectorAll("[data-mascot]")) {
     if (slot.firstElementChild) continue;
@@ -154,9 +154,9 @@ export function mountMascots(scope = document) {
 
 // ---------- "measuring your spiral" overlay ----------
 
-// Shows the overlay and ticks through its steps. Returns finish(): resolves
-// once the overlay has been up at least `min` ms, so the steps can be read.
-// Scoring takes milliseconds; the pause is for the person, not the maths.
+// shows the overlay and ticks through its steps. returns finish(), which resolves
+// once the overlay has been up at least `min` ms so the steps can be read.
+// scoring takes milliseconds, the pause is for the person not the maths.
 export function measuring(min = 2000) {
   const box = document.getElementById("measuring");
   if (reduced()) return async () => {};

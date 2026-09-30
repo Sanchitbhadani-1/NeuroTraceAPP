@@ -1,7 +1,7 @@
-// App shell: a hash router over the <section class="screen"> elements in
+// app shell: a hash router over the <section class="screen"> elements in
 // index.html, plus the setup screens (welcome -> consent -> about you, and
-// home). Drawing, results and collection mode plug into the same router.
-// Scoring lives in score.js, every sentence in copy.js, storage in store.js.
+// home). drawing, results and collection mode plug into the same router.
+// scoring lives in score.js, every sentence in copy.js, storage in store.js.
 
 import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "./nt-features.js";
 import { checkScoringFiles, scoreSession } from "./score.js";
@@ -12,10 +12,10 @@ import { reduced, applyMotion, swap, moveLens, reveal, countUp, watchTitle, toas
 
 // ---------- spiral art (the guide spiral itself is pad.js's spiralPoints) ----------
 
-// A believable hand-drawn line for the welcome and home art: the guide spiral
+// a believable hand-drawn line for the welcome and home art: the guide spiral
 // pushed in and out along its radius by a slow wobble plus a little jitter,
-// faded in over the first fifth so it starts on the centre. Same recipe as
-// the design canvas, so the art matches the mockups.
+// faded in over the first fifth so it starts on the centre. same recipe as
+// the design canvas so the art matches the mockups.
 function handDrawn(r1, turns, steps) {
   return spiralPoints(0, r1, turns, steps).map(([x, y], i) => {
     const p = i / steps;
@@ -27,8 +27,8 @@ function handDrawn(r1, turns, steps) {
 }
 
 // ---------- brand mark and spiral art: drawn once on load ----------
-// Every piece of art is a 340 × 340 viewBox centred on (170, 170), the
-// geometry the design canvas used; CSS sets stroke widths per place.
+// every piece of art is a 340 × 340 viewBox centred on (170, 170), the
+// geometry the design canvas used. CSS sets stroke widths per place.
 
 function drawArt() {
   const art = {
@@ -43,11 +43,11 @@ function drawArt() {
 }
 
 // ---------- scoring files ----------
-// Both files sit next to index.html. Loaded once, eagerly, so a mismatched or
-// missing model surfaces the moment anyone needs scoring. A model handed
+// both files sit next to index.html. loaded once, eagerly, so a mismatched or
+// missing model shows up the moment anyone needs scoring. a model handed
 // numbers in positions its weights don't expect has no safe way to score, so
 // the router sends every scoring path to the error screen instead
-// (Global Constraint 4). Scoring code reads `const { model, reference } = await scoring`.
+// (Global Constraint 4). scoring code reads `const { model, reference } = await scoring`.
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -86,7 +86,7 @@ function resolve(name, param) {
   const fallback = prefs.onboarded ? "home" : "welcome";
   if (!name || !document.getElementById(`screen-${name}`)) return fallback;
   if (name === "error") return loadError ? name : fallback;
-  // Collection mode is run by a facilitator, not the person on the personal
+  // collection mode is run by a facilitator, not the person on the personal
   // consent flow, so it has its own gate.
   if (name.startsWith("collect")) return name === "collect" || collecting ? name : "collect";
   if (!prefs.consented && name !== "welcome" && name !== "consent") return "welcome";
@@ -112,14 +112,14 @@ async function route() {
   show(name, param);
 }
 
-// Per-screen setup, run each time the screen is shown.
+// per-screen setup, run each time the screen is shown.
 const onShow = {};
 const TABS = new Set(["home", "settings", "about-app"]);
 
 const TAB_ORDER = ["home", "settings", "about-app"];
 const TITLED = new Set([...TAB_ORDER, "results"]); // screens whose large title collapses on scroll
 
-// Tabs slide towards the tab you picked; everything else rises into place.
+// tabs slide towards the tab you picked, everything else rises into place.
 function show(name, param) {
   const from = TAB_ORDER.indexOf(previous), to = TAB_ORDER.indexOf(name);
   const kind = from >= 0 && to >= 0 && from !== to ? (to > from ? "left" : "right") : "fade";
@@ -133,7 +133,7 @@ function showNow(name, param) {
   onShow[name]?.(param);
   scrollTo(0, 0);
   screen.querySelector("h1").focus({ preventScroll: true });
-  // The tab bar belongs to the three tab screens only; a check-in or a
+  // the tab bar is for the three tab screens only - a check-in or a
   // collection session is a focused task with its own Back/Cancel.
   const tabbar = document.getElementById("tabbar");
   tabbar.hidden = !TABS.has(name);
@@ -184,7 +184,7 @@ onShow.about = () => {
   document.querySelectorAll('#screen-about input[name="age"]').forEach((r) => (r.checked = r.value === ageChoice));
   document.querySelectorAll('#screen-about input[name="hand"]').forEach((r) => (r.checked = r.value === hand));
   syncAbout();
-  // First run arrives from consent; a check-in started from home (or a
+  // first run arrives from consent. a check-in started from home (or a
   // reload) should go back home, not through consent again.
   document.getElementById("about-back").href = previous === "consent" ? "#consent" : "#home";
 };
@@ -198,8 +198,8 @@ aboutContinue.addEventListener("click", () => {
 });
 
 // ---------- draw ----------
-// One check-in is three spirals, averaged (handoff §6: averaging three
-// drawings cuts within-person noise). Collection mode also records three, so
+// one check-in is three spirals, averaged (handoff §6: averaging three
+// drawings cuts within-person noise). collection mode also records three, so
 // the device-matched reference will be built the same way.
 const CHECKIN_TRIALS = 3;
 
@@ -217,7 +217,7 @@ const pad = createPad(document.getElementById("draw-pad"), {
   },
 });
 
-// First sentence in bold, as in Draw.dc.html's too-short card.
+// first sentence in bold, like Draw.dc.html's too-short card.
 function showDrawStatus(sentence) { showStatus(drawStatus, sentence); }
 function showStatus(box, sentence) {
   box.hidden = !sentence;
@@ -269,7 +269,7 @@ drawDone.addEventListener("click", async () => {
     return;
   }
 
-  // Scoring and saving are async: lock the pad so no new ink can reach
+  // scoring and saving are async - lock the pad so no new ink can reach
   // onInk and re-enable Done for a second trial or a second record.
   drawDone.disabled = true;
   drawSheet.inert = true;
@@ -301,7 +301,7 @@ drawDone.addEventListener("click", async () => {
 
 drawSheet.addEventListener("animationend", () => drawSheet.classList.remove("wipe"));
 
-// A soft glow under the pen tip while it touches the sheet.
+// a soft glow under the pen tip while it touches the sheet.
 const penTip = el("span", "pen-tip");
 drawSheet.append(penTip);
 const canvasEl = document.getElementById("draw-pad");
@@ -316,8 +316,8 @@ for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
 }
 
 // ---------- results ----------
-// Renders a stored record, never a live computation: a check-in reopened from
-// history reads exactly as it did the day it was made (Ruling 7). Nothing
+// renders a stored record, never a live computation, so a check-in reopened from
+// history reads exactly as it did the day it was made (Ruling 7). nothing
 // here may put result.score or result.scorePct on screen (Constraint 2).
 
 const $ = (id) => document.getElementById(id);
@@ -339,11 +339,11 @@ const whenFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "sho
 function measureRow(key, frac) {
   const row = el("div", "measure");
   const track = el("div", "track");
-  track.setAttribute("aria-hidden", "true"); // the sentence is the content; the dot is a second reading
+  track.setAttribute("aria-hidden", "true"); // the sentence is the content, the dot is a second reading
   const dot = el("span", "track-dot");
   dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
   track.append(dot);
-  // copy.measureSentence stays the one source of the wording; the number is
+  // copy.measureSentence stays the one source of the wording, the number is
   // split out so it can count up as the dot travels.
   const [, lead, n, tail] = copy.measureSentence(key, frac).match(/^(.*?)(\d+)(%.*)$/);
   const sentence = el("span", "sub");
@@ -401,8 +401,8 @@ function renderResults(rec) {
     drawingCard(rec),
     every,
   ];
-  // Two columns on iPad: the reading on the left, the measures on the right.
-  // On a phone both wrappers are display: contents and `order` keeps this
+  // two columns on iPad: the reading on the left, the measures on the right.
+  // on a phone both wrappers are display: contents and `order` keeps this
   // exact sequence.
   parts.forEach((node, i) => (node.style.order = i));
   const main = el("div", "results-main"), side = el("div", "results-side");
@@ -446,10 +446,10 @@ function drawingCard(rec) {
   }
   drawing = { canvas, speed, prepared };
   replay.addEventListener("click", () => replayDrawing(drawing));
-  // Painted once the card is in the document and has a size.
+  // painted once the card is in the document and has a size.
   requestAnimationFrame(() => paintDrawing(drawing));
 
-  // With more than one spiral, a segmented pad picks which one is drawn.
+  // with more than one spiral, a segmented pad picks which one gets drawn.
   let picker = "";
   if (drawn.length > 1) {
     picker = el("div", "segmented");
@@ -475,7 +475,7 @@ function drawingCard(rec) {
     el("h3", null, "Speed along the line"), el("p", "sub", copy.SPEED_CAPTION), speed);
 }
 
-// Both lines go through normalize() - the centre-and-scale preprocessTrace
+// both lines go through normalize() - the centre-and-scale preprocessTrace
 // applies - so they share one space and the only visible difference is the
 // trimming, resampling and 15 Hz low-pass.
 function prepareDrawing({ samples, strokeStarts }) {
@@ -494,7 +494,7 @@ function prepareDrawing({ samples, strokeStarts }) {
     }
   }
   const starts = new Set(strokeStarts ?? [0]);
-  // Speed between neighbouring samples of the same stroke - a pen lift is not motion.
+  // speed between neighbouring samples of the same stroke - a pen lift isn't motion.
   const speeds = [];
   for (let i = 1; i < samples.length; i++) {
     const dt = samples[i].t - samples[i - 1].t;
@@ -528,7 +528,7 @@ function strokeLine(ctx, [px, py], map, n, starts, style, width) {
   ctx.restore();
 }
 
-// upTo: seconds of the raw line to draw; the smoothed line appears once it is all drawn.
+// upTo: seconds of the raw line to draw. the smoothed line shows up once it's all drawn.
 function paintDrawing(d, upTo = Infinity) {
   if (!d?.canvas.isConnected) return;
   const { ctx, w, h } = fitCanvas(d.canvas);
@@ -567,7 +567,7 @@ function paintSpeed({ speed, prepared: { speeds } }) {
   ctx.stroke();
 }
 
-// Always animates: the person asked for it with a button (Constraint 8).
+// always animates bc the person asked for it with a button (Constraint 8).
 function replayDrawing(d) {
   cancelAnimationFrame(d.frame);
   const end = d.prepared.t[d.prepared.t.length - 1];
@@ -625,9 +625,9 @@ onShow.home = async () => {
 };
 
 // ---------- collection mode (handoff B2, docs/COLLECTED_FORMAT.md) ----------
-// A facilitator records three spirals per participant for the device-matched
-// reference. Nothing is scored or shown; each session is saved on the iPad
-// and leaves it only through Export.
+// a facilitator records three spirals per participant for the device-matched
+// reference. nothing is scored or shown, each session is saved on the iPad
+// and only leaves it through Export.
 
 const COLLECT_TRIALS = 3;
 let pendingId = null; // the ID offered to the next new participant
@@ -803,8 +803,8 @@ collectNext.addEventListener("click", async () => {
   try {
     record.id = await saveCollected(record);
   } catch (err) {
-    // Losing a participant's spirals is the one failure that matters here:
-    // keep the session in memory so it can still be exported by hand.
+    // losing a participant's spirals is the one failure that matters here,
+    // so hold the session in memory and it can still be exported by hand.
     console.error("NeuroTrace: couldn't save the session on this iPad", err);
   }
   collecting.saved = record;
@@ -832,8 +832,8 @@ $("done-export").addEventListener("click", async () => {
   if (s) await exportSessions([s], `${s.subjectId}-s${s.session}.json`);
 });
 
-// The share sheet where there is one (AirDrop, Files, Mail on iPad),
-// otherwise a download. One session exports as an object, several as an
+// the share sheet where there is one (AirDrop, Files, Mail on iPad),
+// otherwise a download. one session exports as an object, several as an
 // array - both shapes collected.py reads.
 async function exportSessions(sessions, filename) {
   const clean = sessions.map(({ id, exported, ...s }) => s);
@@ -864,7 +864,7 @@ function download(file) {
 
 // ---------- settings ----------
 
-// "auto" leaves the choice to prefers-color-scheme; light/dark pin it via
+// "auto" leaves the choice to prefers-color-scheme, light/dark pin it via
 // data-theme, which styles.css keys the token sets to.
 function applyTheme(theme) {
   if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
@@ -878,7 +878,7 @@ $("settings-age").innerHTML = copy.AGE_CHOICES
 const check = (name, value) =>
   document.querySelectorAll(`#screen-settings input[name="${name}"]`).forEach((r) => (r.checked = r.value === value));
 
-// Order matches copy.ACCENTS; styles.css holds each accent's light and dark values.
+// order matches copy.ACCENTS. styles.css holds each accent's light and dark values.
 const ACCENT_IDS = ["blue", "indigo", "violet", "teal", "amber", "rose", "graphite"];
 $("accent-choices").innerHTML = copy.ACCENTS
   .map((name, i) => `<label class="accent-option" data-accent="${ACCENT_IDS[i]}"><input type="radio" name="accent" value="${ACCENT_IDS[i]}" aria-label="${name}"><span class="accent-dot"></span></label>`)
@@ -902,8 +902,8 @@ onShow.settings = () => {
   $("delete-status").textContent = "";
 };
 
-// Every change saves at once - there is no Save button to forget.
-// A new theme or accent spreads out from the control that was tapped.
+// every change saves right away - no Save button to forget.
+// a new theme or accent spreads out from the control that was tapped.
 $("screen-settings").addEventListener("change", ({ target }) => {
   const { value } = target;
   const r = target.closest("label").getBoundingClientRect();
@@ -951,7 +951,7 @@ onShow["about-app"] = async () => {
     });
     $("about-reference").hidden = false;
   } catch {
-    $("about-reference").hidden = true; // no reference file, nothing honest to say here
+    $("about-reference").hidden = true; // no reference file, so nothing honest to say here
   }
 };
 
@@ -966,7 +966,7 @@ const tabbarEl = $("tabbar");
 addEventListener("resize", () => moveLens(tabbarEl));
 $("measuring-steps").replaceChildren(...copy.MEASURE_STEPS.map((step) => el("li", null, step)));
 mountMascots();
-// The welcome pen dot is SMIL, which CSS can't stop - pause it by hand.
+// the welcome pen dot is SMIL, which CSS can't stop - so pause it by hand.
 if (reduced()) document.querySelectorAll(".hero svg").forEach((svg) => svg.pauseAnimations());
 
 // ---------- error ----------

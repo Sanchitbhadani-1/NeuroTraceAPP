@@ -1,14 +1,14 @@
-// Storage: IndexedDB history (assessments, collected sessions) + localStorage
-// prefs. Pure functions where possible; every DB function opens, does its
-// work, and closes in `finally` (same shape as app.js's old history section).
+// storage: IndexedDB history (assessments, collected sessions) + localStorage
+// prefs. pure functions where possible, and every DB function opens, does its
+// work, then closes in `finally` (same shape as app.js's old history section).
 
 const DB_NAME = "neurotrace";
 const DB_VERSION = 2;
 const STORE_ASSESSMENTS = "assessments"; // v1 store - keyPath "id", autoIncrement
 const STORE_COLLECTED = "collected";
 
-// Features + score are a few hundred bytes and are kept for good - they are
-// the whole point of measuring over time. Raw samples are ~100 KB each, so
+// features + score are a few hundred bytes so they're kept for good - they're
+// the whole point of measuring over time. raw samples are ~100 KB each, so
 // only the newest RAW_KEEP assessments hold on to theirs (handoff B6).
 const RAW_KEEP = 3;
 
@@ -26,7 +26,7 @@ function openDb() {
   const req = indexedDB.open(DB_NAME, DB_VERSION);
   req.onupgradeneeded = () => {
     const db = req.result;
-    // Upgrading from v1 already leaves "assessments" in place - never touch it.
+    // upgrading from v1 already leaves "assessments" in place - never touch it.
     if (!db.objectStoreNames.contains(STORE_ASSESSMENTS)) {
       db.createObjectStore(STORE_ASSESSMENTS, { keyPath: "id", autoIncrement: true });
     }
@@ -45,9 +45,9 @@ export async function saveAssessment(record) {
     const tx = db.transaction(STORE_ASSESSMENTS, "readwrite");
     const store = tx.objectStore(STORE_ASSESSMENTS);
     const addReq = store.add(record);
-    // Same transaction, so the cursor below already sees the record just added.
-    // Strip raw traces from everything past the newest RAW_KEEP; older v1
-    // records with no `trials` field are left alone.
+    // same transaction, so the cursor below already sees the record we just added.
+    // strip raw traces from everything past the newest RAW_KEEP. older v1
+    // records with no `trials` field get left alone.
     let seen = 0;
     store.openCursor(null, "prev").onsuccess = (ev) => {
       const cur = ev.target.result;
@@ -71,7 +71,7 @@ export async function listAssessments() {
     const tx = db.transaction(STORE_ASSESSMENTS, "readonly");
     const all = await request(tx.objectStore(STORE_ASSESSMENTS).getAll());
     await txDone(tx);
-    // Pre-v2 dev records have no `result` - nothing v2 can show for them.
+    // pre-v2 dev records have no `result` - nothing v2 can show for them.
     return all.filter((r) => r.result).reverse();
   } finally {
     db.close();
@@ -90,8 +90,8 @@ export async function getAssessment(id) {
   }
 }
 
-// Settings > Delete all check-ins. Collected research sessions are a separate
-// store and are left alone.
+// Settings > Delete all check-ins. collected research sessions are a separate
+// store so they stay untouched.
 export async function clearAssessments() {
   const db = await openDb();
   try {
@@ -152,7 +152,7 @@ export async function subjects() {
   for (const s of sessions) {
     const entry = bySubject.get(s.subjectId);
     if (entry) entry.sessions++;
-    // First time we see a subject is its most recent session, since
+    // the first time we see a subject is its most recent session, since
     // `sessions` is already newest-first - so insertion order into this Map
     // is newest-lastAt-first too.
     else bySubject.set(s.subjectId, { subjectId: s.subjectId, sessions: 1, lastAt: s.collectedAt });
@@ -176,8 +176,8 @@ export function newSubjectId(existing) {
 const PREFS_KEY = "neurotrace:prefs";
 const PREFS_DEFAULTS = { onboarded: false, consented: false, ageChoice: null, hand: "right", theme: "auto", accent: "blue", motion: "auto" };
 
-// Private mode / blocked storage throws on read or write - never let that
-// take down the app, just fall back to defaults.
+// private mode / blocked storage throws on read or write - never let that
+// take down the app, js fall back to defaults.
 export function getPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
@@ -191,6 +191,6 @@ export function setPrefs(patch) {
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ ...getPrefs(), ...patch }));
   } catch {
-    // ignored - next read just falls back to defaults
+    // ignoring it - next read js falls back to defaults
   }
 }
