@@ -391,7 +391,7 @@ function renderResults(rec) {
     every.append(group);
   }
 
-  $("results-body").replaceChildren(
+  const parts = [
     el("p", "summary", copy.RESULT_SUMMARY),
     levels(result.tier),
     el("p", "sub reference", copy.referenceSentence(result)),
@@ -400,8 +400,16 @@ function renderResults(rec) {
     card("What you can do", el("p", null, tier.todo)),
     drawingCard(rec),
     every,
-  );
-  reveal($("results-body").children);
+  ];
+  // Two columns on iPad: the reading on the left, the measures on the right.
+  // On a phone both wrappers are display: contents and `order` keeps this
+  // exact sequence.
+  parts.forEach((node, i) => (node.style.order = i));
+  const main = el("div", "results-main"), side = el("div", "results-side");
+  main.append(...parts.filter((n) => n !== stoodOut && n !== every));
+  side.append(stoodOut, every);
+  $("results-body").replaceChildren(main, side);
+  reveal(parts);
   reveal($("results-body").querySelectorAll(".measure"), (row) => countUp(row.querySelector(".num"), Number(row.dataset.n)));
 }
 

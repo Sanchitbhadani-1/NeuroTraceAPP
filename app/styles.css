@@ -824,6 +824,50 @@ fieldset + .sub { margin-top: 10px; }
   white-space: nowrap;
 }
 
+/* ---------- iPad ---------- */
+/* A portrait iPad keeps the single column (body already 19 px) with a wider
+   drawing pad; from 900 px wide the tab screens and results use two columns.
+   Forms and the setup flow stay one narrow column on purpose. */
+
+#results-body { display: flex; flex-direction: column; }
+.results-main, .results-side { display: contents; }
+
+@media (min-width: 700px) {
+  #screen-draw { max-width: 760px; }
+  .tabbar { grid-template-columns: repeat(3, minmax(0, 160px)); justify-content: center; }
+}
+
+@media (min-width: 900px) {
+  .tabbed, #screen-results { max-width: 1040px; }
+
+  #screen-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-areas: "brand brand" "card title" "card list" "lock list";
+    grid-template-rows: auto auto auto 1fr;
+    column-gap: 32px;
+    align-content: start;
+  }
+  #screen-home > .brand { grid-area: brand; }
+  #screen-home > .checkin { grid-area: card; align-self: start; margin-top: 16px; }
+  #screen-home > .section-title { grid-area: title; margin-top: 16px; }
+  #screen-home > #history { grid-area: list; }
+  #screen-home > .actions { grid-area: lock; align-self: end; }
+
+  #results-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+  .results-main, .results-side { display: flex; flex-direction: column; }
+  .results-main { position: sticky; top: 56px; }
+  .results-side > .result-card:first-child { margin-top: 0; }
+
+  /* Settings and About: cards flow into two columns, headings kept with
+     their card. */
+  #screen-settings, #screen-about-app { display: block; columns: 2; column-gap: 32px; }
+  #screen-settings > h1, #screen-about-app > .brand, #screen-about-app > h1, #screen-about-app > .lede { column-span: all; }
+  #screen-settings .section-title, #screen-about-app .section-title { break-after: avoid; }
+  #screen-settings .card, #screen-about-app .card, #screen-about-app .actions { break-inside: avoid; }
+  #screen-settings .section-title:first-of-type { margin-top: 20px; }
+}
+
 /* ---------- error ---------- */
 
 #error-message { margin-top: 16px; color: var(--ink); }

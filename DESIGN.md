@@ -100,6 +100,17 @@ Numbers that change use `font-variant-numeric: tabular-nums` (`.num`).
 - **Status card (`.status`)** is an inline message with an info icon, `role="status"`, with its first sentence in bold.
 - **Mascot (`[data-mascot]`)** is a spiral shell around a face. Idle, it bobs and blinks; while measuring, it traces its own shell. It never reacts to a result.
 
+## iPad
+
+Same system, wider layout. There's no separate iPad app; it's all media queries in `styles.css`.
+
+- **700 px and up:** body text is 19 px. The drawing column widens to 760 px, so the pad reaches about 700 px on a portrait iPad. The tabs group in the centre, up to 160 px each.
+- **900 px and up** (landscape, 12.9-inch portrait): the tab screens and results widen to 1040 px.
+  - **Home:** check-in card on the left, history on the right.
+  - **Results:** the reading (verdict, reference, meaning, next steps, drawing) is a pinned left column; "What stood out" and "Every measure" sit on the right. On a phone, both wrappers use `display: contents` and CSS `order`, so the phone sequence is unchanged.
+  - **Settings and About:** cards flow into two columns.
+- **Kept to one narrow column on every size:** welcome, consent, about-you and the participant form. Collection mode is already laid out for the iPad.
+
 ## Motion
 
 - **One switch:** `<html data-motion="reduce">`, set before first paint (`index.html`) from Settings > Motion or the device setting. Under it, every CSS animation and transition jumps to its end state. JavaScript helpers check `reduced()` from `app/motion.js`.
