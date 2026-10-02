@@ -160,7 +160,9 @@ h1:focus { outline: none; }
     max(env(safe-area-inset-left), 24px);
   animation: enter 280ms var(--ease) both;
 }
-.screen[hidden] { display: none; }
+/* `hidden` always wins. Any later rule that sets `display` on a screen or
+   component (the iPad grid layouts do) would otherwise un-hide it. */
+[hidden] { display: none !important; }
 
 @keyframes enter {
   from { opacity: 0; transform: translateY(8px); }
