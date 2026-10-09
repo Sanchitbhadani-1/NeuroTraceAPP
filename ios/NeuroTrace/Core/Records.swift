@@ -59,3 +59,75 @@ struct Trace: Codable, Equatable {
     var deviceLabel: String
     var samples: [Sample]
 }
+
+// Create a copy of a drawing for replays but it takes lest storage.
+struct ReplayPath: Codable, Equatable {
+    var t: [Float]
+    var x: [Float]
+    var y: [Float]
+    
+    var starts: [Int] // The index where each stroke starts (where the pen was put back down)
+
+    // Rewrite the encoding process. When exporting, round t, x and y to 2 decimals so the file is smaller
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        
+        if encoder.userInfo[.forExport] as? Bool == true { // Check the forExport setting (counts as false if it was never set)
+            // A function that rounds every number in a list to 2 decimals, the same way JavaScript rounds
+            let round = { (v: [Float]) in v.map { n in jsRound(Double(n) * 100) / 100 } }
+            try c.encode(round(t), forKey: .t)
+            try c.encode(round(x), forKey: .x)
+            try c.encode(round(y), forKey: .y)
+        } else {
+            try c.encode(t, forKey: .t)
+            try c.encode(x, forKey: .x)
+            try c.encode(y, forKey: .y)
+        }
+        try c.encode(starts, forKey: .starts)
+    }
+}
+
+// A lighter copy of a drawing for replays, about 60 points a second, keeping where each stroke starts and ends
+let replayHz = 60.0
+func replayPath(_ samples: [Sample], _ strokeStarts: [Int] = [0]) -> ReplayPath {
+    let starts = Set(strokeStarts)
+    var keep: [Int] = []
+    var last = -Double.infinity
+    for (i, s) in samples.enumerated() {
+        let edge = starts.contains(i) || starts.contains(i + 1) || i == samples.count - 1
+        if edge || s.t - last >= 1 / replayHz {
+            keep.append(i)
+            last = s.t
+        }
+    }
+    let pick = { (k: KeyPath<Sample, Double>) in keep.map { i in Float(samples[i][keyPath: k]) } }
+    return ReplayPath(t: pick(\.t), x: pick(\.x), y: pick(\.y), starts: keep.enumerated().flatMap { (j, i) in starts.contains(i) ? [j] : [] })
+}
+
+// Create one of the three spirals in a check-in. Samples and strokeStarts are optional because only the 3 newest check-ins keep them
+struct AssessmentTrial: Codable, Equatable {
+    var samples: [Sample]?
+    var strokeStarts: [Int]?
+    // The 12 measures for this spiral, by name
+    var features: [String: Double]
+    var path: ReplayPath?
+}
+
+// Create one whole check-in: who drew it, how, the three spirals, and the result
+struct AssessmentRecord: Codable, Equatable {
+    // Store gives each check-in an id when it's saved, so it's nil before that
+    var id: Int?
+    // When it happened, in milliseconds since 1970 (like JavaScript's Date.now())
+    var ts: Int
+    var task: String
+    var hand: String
+    var ageChoice: String?
+    var bracketChoice: String?
+    var inputType: String?
+    var deviceLabel: String
+    var trials: [AssessmentTrial]?
+    // The 12 measures averaged over the three spirals
+    var features: [String: Double]?
+    // The scoring result, defined in Score.swift
+    var result: Score.Result?
+}

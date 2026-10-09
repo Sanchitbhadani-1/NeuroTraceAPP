@@ -138,6 +138,64 @@ struct IconView: View {
     }
 }
 
+func handDrawn(_ r1: Double, _ turns: Double, _ steps: Int) -> [[Double]] {
+    spiralPoints(0, r1, turns, steps).enumerated().map { (i, pt) -> [Double] in
+        let x: Double = pt[0], y: Double = pt[1]
+        let p: Double = Double(i) / Double(steps)
+        let th: Double = p * turns * 2 * Double.pi
+        let w1: Double = 0.6 * sin(th * 0.45 + 1.3), w2: Double = 0.3 * sin(th * 1.3 + 2.73), w3: Double = 0.1 * sin(th * 3.7 + 0.91)
+        let wobble: Double = 4 * (w1 + w2 + w3)
+        let dr: Double = (wobble + 0.4 * sin(Double(i) * 2.39996)) * min(1, p * 5)
+        return [x + dr * cos(th), y + dr * sin(th)]
+    }
+}
+
+enum Art {
+    static let mark = spiralPoints(0, 150, 2.25, 120)
+    static let guide = spiralPoints(0, 150, 4, 720)
+    static let trace = handDrawn(150, 4, 720)
+}
+
+struct ArtShape: Shape {
+    let points: [[Double]]
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        for (i, pt) in points.enumerated() {
+            let q = CGPoint(x: rect.minX + (170 + pt[0]) * rect.width / 340, y: rect.minY + (170 + pt[1]) * rect.height / 340)
+            if i == 0 { p.move(to: q) } else { p.addLine(to: q) }
+        }
+        return p
+    }
+}
+
+struct MarkView: View {
+    var size: CGFloat = 28
+    var color: Color? = nil
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        ArtShape(points: Art.mark)
+            .stroke(color ?? p.accent.color, style: StrokeStyle(lineWidth: 30 * size / 340, lineCap: .round, lineJoin: .round))
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+struct MiniArt: View {
+    var size: CGFloat = 92
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        ZStack {
+            ArtShape(points: Art.guide).stroke(p.guide.color, lineWidth: 7 * size / 340)
+            ArtShape(points: Art.trace).stroke(p.accent.color, style: StrokeStyle(lineWidth: 13 * size / 340, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct CollectModeKey: EnvironmentKey {
     static let defaultValue = false
 }
@@ -290,6 +348,252 @@ struct LockNote: View {
     }
 }
 
+struct BackLink: View {
+    var label = "Back"
+    let action: () -> Void
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 2) {
+                IconView(icon: .back, size: 24, weight: 2.2)
+                Text(label).nt(.body(17, lineHeight: 1.5))
+            }
+            .foregroundStyle(p.accent.color)
+            .frame(minWidth: 44, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, -8)
+    }
+}
+
+struct BarLink: View {
+    let label: String
+    var strong = false
+    let action: () -> Void
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .nt(.body(17, strong ? 600 : 400, lineHeight: 1.5))
+                .foregroundStyle(p.accent.color)
+                .frame(minWidth: 44, minHeight: 44, alignment: strong ? .trailing : .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct Bar<Left: View, Center: View, Right: View>: View {
+    var side: CGFloat = 88
+    @ViewBuilder var left: () -> Left
+    @ViewBuilder var center: () -> Center
+    @ViewBuilder var right: () -> Right
+
+    var body: some View {
+        HStack(spacing: 0) {
+            left().frame(width: side, alignment: .leading)
+            center().frame(maxWidth: .infinity).multilineTextAlignment(.center)
+            right().frame(width: side, alignment: .trailing).multilineTextAlignment(.trailing)
+        }
+        .frame(minHeight: 44)
+    }
+}
+
+struct Segments: View {
+    let total: Int
+    let done: Int
+    var width: CGFloat = 120
+    var height: CGFloat = 5
+    var gap: CGFloat = 6
+    var animateNow = true
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        HStack(spacing: gap) {
+            ForEach(0..<total, id: \.self) { i in
+                if i <= done {
+                    GrowBar(color: p.accent.color, height: height, grow: animateNow && i == done)
+                } else {
+                    Capsule().fill(p.fill.color).frame(height: height)
+                }
+            }
+        }
+        .frame(width: width)
+        .accessibilityElement()
+        .accessibilityLabel("\(done) of \(total)")
+    }
+}
+
+private struct GrowBar: View {
+    let color: Color
+    let height: CGFloat
+    let grow: Bool
+    @State private var shown = false
+
+    var body: some View {
+        Capsule().fill(color).frame(height: height)
+            .scaleEffect(x: grow && !shown ? 0 : 1, y: 1, anchor: .leading)
+            .onAppear {
+                if !grow || Motion.reduced() { shown = true; return }
+                withAnimation(Theme.ease(560)) { shown = true }
+            }
+    }
+}
+
+struct Chip: View {
+    let label: String
+    let checked: Bool
+    let action: () -> Void
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if checked {
+                    IconView(icon: .checkmark, size: 17, weight: 3)
+                        .transition(.scale(scale: 0).combined(with: .opacity))
+                }
+                Text(label)
+            }
+            .nt(.body(nil, checked ? 600 : 400, lineHeight: 1.2))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(p.ink.color)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(Capsule().fill(checked ? p.accentSoft.color : p.surface.color))
+            .overlay(Capsule().strokeBorder(checked ? p.accent.color : p.line.color, lineWidth: checked ? 2 : p.hair))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressStyle())
+        .animation(Motion.reduced() ? nil : Theme.ease(260), value: checked)
+        .accessibilityAddTraits(checked ? [.isSelected] : [])
+    }
+}
+
+struct ChipGrid: View {
+    let items: [(value: String, label: String)]
+    let selected: String?
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        let rows = stride(from: 0, to: items.count, by: 2).map { i in Array(items[i..<min(i + 2, items.count)]) }
+        VStack(spacing: 10) {
+            ForEach(0..<rows.count, id: \.self) { r in
+                HStack(spacing: 10) {
+                    ForEach(rows[r], id: \.value) { item in
+                        Chip(label: item.label, checked: selected == item.value) { onSelect(item.value) }
+                    }
+                }
+            }
+        }
+        .padding(.top, 12)
+    }
+}
+
+struct Legend: View {
+    let text: String
+    var value: String? = nil
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(text).text(.strong)
+            Spacer(minLength: 0)
+            if let value { Text(value).nt(.body()).foregroundStyle(p.ink2.color) }
+        }
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+struct Segmented: View {
+    let options: [(value: String, label: String)]
+    let selected: String?
+    let onSelect: (String, CGPoint) -> Void
+    @Environment(\.palette) private var p
+    @Namespace private var thumbSpace
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<options.count, id: \.self) { i in
+                let on = options[i].value == selected
+                Text(options[i].label)
+                    .nt(.body(16, on ? 600 : 400, lineHeight: 1.2))
+                    .foregroundStyle(p.ink.color)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background {
+                        if on {
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(p.segThumb.color)
+                                .shadow(color: .black.opacity(0.16), radius: 3, x: 0, y: 2)
+                                .matchedGeometryEffect(id: "thumb", in: thumbSpace)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture(coordinateSpace: .global) { location in onSelect(options[i].value, location) }
+                    .accessibilityAddTraits(on ? [.isButton, .isSelected] : [.isButton])
+                    .accessibilityAction { onSelect(options[i].value, .zero) }
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(p.fill.color))
+        .animation(Motion.reduced() ? nil : Theme.ease(300), value: selected)
+        .padding(.top, 12)
+    }
+}
+
+@MainActor
+@Observable
+final class Shaker {
+    var x: CGFloat = 0
+    @ObservationIgnored private var frame = 0
+
+    func shake() {
+        if Motion.reduced() { return }
+        Frames.cancel(frame)
+        let start = Frames.now()
+        func step(_ now: Double) {
+            let u = min(1, (now - start) / 440)
+            x = u >= 1 ? 0 : CGFloat(CubicBezier.keyframes(u, [(0, 0), (0.2, -7), (0.4, 6), (0.6, -3), (0.8, 2), (0.9999, 0)], .brand))
+            if u < 1 { frame = Frames.next(step) }
+        }
+        frame = Frames.next(step)
+    }
+}
+
+struct StatusBox: View {
+    let sentence: String?
+    let shake: CGFloat
+    @Environment(\.palette) private var p
+    @Environment(\.typo) private var typo
+
+    var body: some View {
+        if let sentence {
+            let cut = sentence.firstIndex(of: ".").map { sentence.index(after: $0) } ?? sentence.startIndex
+            Card(padding: 0) {
+                HStack(alignment: .top, spacing: 12) {
+                    IconView(icon: .info, size: 22).foregroundStyle(p.accent.color)
+                    (ntText(String(sentence[..<cut]), .body(15, 600, lineHeight: 1.4), typo) + ntText(String(sentence[cut...]), .body(15, lineHeight: 1.4), typo))
+                        .lineSpacing(lineGap(.body(15, lineHeight: 1.4), typo))
+                        .foregroundStyle(p.ink.color)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+            }
+            .offset(x: shake)
+            .padding(.top, 16)
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
 struct TitleFrame: Equatable {
     var text: String
     var minY: CGFloat
@@ -381,6 +685,7 @@ struct TabBar: View {
     static let topHeight: CGFloat = 64
 
     static let items: [(id: Screen, label: String, icon: Icon)] = [
+        (.testing, "Testing", .testing),
     ]
 
     var body: some View {
@@ -601,4 +906,96 @@ struct MeasuringOverlay: View {
         .opacity(shown ? 1 : 0)
         .accessibilityElement(children: .combine)
     }
+}
+
+struct Track: View {
+    let dots: [(frac: Double, then: Bool)]
+    var active = true
+    @Environment(\.palette) private var p
+    @State private var settled = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 2).fill(p.fill.color).frame(width: w, height: 4).offset(y: 8)
+                RoundedRectangle(cornerRadius: 1).fill(p.guide.color).frame(width: 2, height: 14).offset(x: w / 2 - 1, y: 3)
+                ForEach(0..<dots.count, id: \.self) { i in
+                    let d = dots[i]
+                    let at = settled ? min(max(jsRound(d.frac * 100) / 100, 0.03), 0.97) : 0.5
+                    ZStack {
+                        if d.then {
+                            Circle().fill(p.surface.color)
+                            Circle().strokeBorder(p.accent.color, lineWidth: 3)
+                        } else {
+                            Circle().fill(p.accent.color)
+                        }
+                    }
+                    .frame(width: 20, height: 20)
+                    .background(Circle().fill(p.surface.color).padding(-3))
+                    .offset(x: w * CGFloat(at) - 10)
+                    .opacity(settled ? 1 : 0)
+                }
+            }
+        }
+        .frame(height: 20)
+        .padding(.horizontal, 8)
+        .padding(.top, 6)
+        .accessibilityHidden(true)
+        .onAppear { if active { settle() } }
+        .onChange(of: active) { _, now in if now { settle() } }
+    }
+
+    private func settle() {
+        if settled { return }
+        if Motion.reduced() {
+            settled = true
+            return
+        }
+        withAnimation(Theme.ease(640)) { settled = true }
+    }
+}
+
+struct Reveal: ViewModifier {
+    let index: Int
+    var onIn: (@MainActor () -> Void)? = nil
+    @State private var shown = false
+    @Environment(\.typo) private var typo
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : 14)
+            .background(GeometryReader { geo in
+                Color.clear
+                    .onAppear { check(geo.frame(in: .global)) }
+                    .onChange(of: geo.frame(in: .global).minY) { _, _ in check(geo.frame(in: .global)) }
+            })
+    }
+
+    private func check(_ frame: CGRect) {
+        if shown { return }
+        if Motion.reduced() {
+            shown = true
+            onIn?()
+            return
+        }
+        if frame.minY < typo.height * 0.94 && frame.maxY > 0 {
+            withAnimation(Theme.ease(600).delay(Double(index % 6) * 0.07)) { shown = true }
+            onIn?()
+        }
+    }
+}
+
+extension View {
+    func reveal(_ index: Int, onIn: (@MainActor () -> Void)? = nil) -> some View { modifier(Reveal(index: index, onIn: onIn)) }
+}
+
+func ntText(_ string: String, _ font: NTFont, _ typo: Typography) -> Text {
+    Text(string).font(Font(Fonts.make(font, size: typo.scaled(font.size ?? typo.body)) as CTFont))
+}
+
+func lineGap(_ font: NTFont, _ typo: Typography) -> CGFloat {
+    let size = typo.scaled(font.size ?? typo.body)
+    return max(0, size * font.lineHeight - Fonts.make(font, size: size).lineHeight)
 }

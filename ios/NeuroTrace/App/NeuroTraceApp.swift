@@ -118,7 +118,13 @@ struct RootView: View {
     private func view(for screen: Screen?) -> some View {
         if let screen {
             switch screen {
+            // Signed out there's only home. Then the check-in flow
             case .home: HomeScreen()
+            case .about: AboutScreen()
+            case .draw: DrawScreen()
+            case .results: ResultsScreen()
+            case .testing: TestingScreen()
+            case .error: ErrorScreen()
             }
         } else {
             Color.clear
