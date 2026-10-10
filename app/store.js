@@ -3,13 +3,16 @@
 // work, then closes in `finally` (same shape as app.js's old history section).
 
 const DB_NAME = "neurotrace";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_ASSESSMENTS = "assessments"; // v1 store - keyPath "id", autoIncrement
 const STORE_COLLECTED = "collected";
+const STORE_TRAINING = "training"; // v3 - one record per counted training try
 
 // features + score are a few hundred bytes so they're kept for good - they're
 // the whole point of measuring over time. raw samples are ~100 KB each, so
-// only the newest RAW_KEEP assessments hold on to theirs (handoff B6).
+// only the newest RAW_KEEP assessments hold on to theirs (handoff B6). each
+// trial's `path`, a 60 Hz copy of the drawing for replay (a few KB), is kept
+// for good like the features.
 const RAW_KEEP = 3;
 
 const request = (req) => new Promise((resolve, reject) => {
@@ -32,6 +35,9 @@ function openDb() {
     }
     if (!db.objectStoreNames.contains(STORE_COLLECTED)) {
       db.createObjectStore(STORE_COLLECTED, { keyPath: "id", autoIncrement: true });
+    }
+    if (!db.objectStoreNames.contains(STORE_TRAINING)) {
+      db.createObjectStore(STORE_TRAINING, { keyPath: "id", autoIncrement: true });
     }
   };
   return request(req);
@@ -171,10 +177,63 @@ export function newSubjectId(existing) {
   return id;
 }
 
+// ---------- training ----------
+// every counted try is kept (measures plus a small replay path, a few KB),
+// in its own store so "Delete all check-ins" leaves practice alone.
+
+export async function saveTrainingTry(record) {
+  const db = await openDb();
+  try {
+    const tx = db.transaction(STORE_TRAINING, "readwrite");
+    const id = await request(tx.objectStore(STORE_TRAINING).add(record));
+    await txDone(tx);
+    return id;
+  } finally {
+    db.close();
+  }
+}
+
+// one exercise's tries, or every exercise's when none is named, newest first.
+export async function listTrainingTries(exercise) {
+  const db = await openDb();
+  try {
+    const tx = db.transaction(STORE_TRAINING, "readonly");
+    const all = await request(tx.objectStore(STORE_TRAINING).getAll());
+    await txDone(tx);
+    return (exercise ? all.filter((r) => r.exercise === exercise) : all).reverse();
+  } finally {
+    db.close();
+  }
+}
+
+// each exercise's level state (train.js newLevelState) in localStorage, read
+// on every visit. null for an exercise not started yet.
+const TRAINING_KEY = "neurotrace:training";
+
+function trainingStates() {
+  try {
+    return JSON.parse(localStorage.getItem(TRAINING_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export const getTrainingState = (exercise) => trainingStates()[exercise] ?? null;
+
+export function setTrainingState(exercise, state) {
+  try {
+    localStorage.setItem(TRAINING_KEY, JSON.stringify({ ...trainingStates(), [exercise]: state }));
+  } catch {
+    // private mode or blocked storage: the level just doesn't persist
+  }
+}
+
 // ---------- prefs (localStorage) ----------
 
 const PREFS_KEY = "neurotrace:prefs";
-const PREFS_DEFAULTS = { onboarded: false, consented: false, ageChoice: null, hand: "right", theme: "auto", accent: "blue", motion: "auto" };
+// signedIn is a placeholder until accounts exist: it only decides whether the
+// signed-out home or the tabs are shown.
+const PREFS_DEFAULTS = { onboarded: false, consented: false, signedIn: false, ageChoice: null, hand: "right", theme: "auto", accent: "blue", motion: "auto" };
 
 // private mode / blocked storage throws on read or write - never let that
 // take down the app, js fall back to defaults.

@@ -174,6 +174,169 @@ export const HOW_STEPS = [
 ];
 export const CREDIT = "Made by Sanchit Bhadani and Aryan Modi for the 2026 Congressional App Challenge.";
 
+// signed-out home, account, testing and dashboard - new copy. accounts don't
+// exist yet, so logging in is a placeholder and the copy says so.
+export const LOGIN_NOTE = "Accounts aren't set up yet. For now, logging in opens the app on this device.";
+export const LOGOUT_HELP = "Accounts aren't set up yet. Logging out takes you back to the home page. Your check-ins stay on this device.";
+export const TESTING_BLURB =
+  "Short drawing tests that measure how you move. Use the same hand on the same device each time, so your results compare fairly.";
+export const MED_BLURB = "The medicines you take, with the dose and when you take them.";
+export const MED_NOT_SAVED = "Not saved yet. This part of the app is still being built.";
+
+// training tab. Today's focus and This week are still sample layouts.
+// ClaimsRules: sample data must be visibly labelled as sample data.
+export const TRAINING_BLURB = "Short practice exercises. Each one gets a little harder once you've mastered its current level.";
+export const TRAINING_WHY = "Why this one: wobble was your most unusual measure in your Sep 30 check-in.";
+export const FOCUS_SAMPLE = "Sample. Picking today's exercise from your check-ins isn't built yet.";
+export const WEEK_SAMPLE = "Sample. Practice days aren't counted yet.";
+
+// training exercises - new copy, written against ClaimsRules' training
+// section: it's practice, and every sentence is about what was measured on
+// this try, never about the person's condition.
+export const EXERCISE_NAMES = {
+  "big-writing": "Big writing", rhythm: "Rhythm", "steady-tracing": "Steady tracing", "hand-skills": "Hand skills",
+};
+export const INSTRUCTIONS = {
+  "big-writing": "Write a row of tall loops, like a cursive l, from left to right. Make each loop touch the dashed line.",
+  "steady-tracing":
+    "Watch the dot trace the spiral, picture yourself drawing it, then trace it yourself from the middle out. " +
+    "At higher levels the guide gets fainter.",
+  rhythm: "Turn your sound on. After three clicks, a dot moves along the wave, one stroke per click. Keep your pen with the dot.",
+  "hand-skills": "Circles appear one at a time and shrink away. Tap each one before it disappears.",
+};
+export const PAD_LABELS = {
+  "big-writing": "Writing area with a baseline and a dashed target line",
+  "steady-tracing": "Tracing area with a spiral guide",
+  rhythm: "Tracing area with a wave and a dot to follow",
+};
+// what to do right now, shown above the exercise.
+export const WATCH = "Watch the dot trace the spiral.";
+export const LOOK = "Look at the spiral, from the middle out.";
+export const imagine = (n) => `Now picture yourself drawing it. ${n}`;
+export const TRACE_NOW = "Your turn. Trace it from the middle out.";
+export const RHYTHM_READY = "Tap Start, then put your pen on the dot before it moves.";
+export const getReady = (n) => `Get ready. ${n}`;
+export const FOLLOW = "Follow the dot.";
+export const RHYTHM_END = "That's the end of the wave. Tap Done.";
+export const TARGETS_READY = "Tap Start when you're ready.";
+export const circleOf = (n, of) => `Circle ${n} of ${of}`;
+export const TRACE_TOO_SHORT = "Too little of the spiral to count. Trace it from the middle all the way out.";
+export const RHYTHM_TOO_SHORT = "Too little of the wave to count. Follow the dot all the way to the end.";
+export const COMING_SOON = "Coming soon";
+export const NOT_STARTED = "Not started";
+export const LAST_CHANGE = { up: "Went up last time", down: "Went down last time" };
+export const levelShort = (n) => `Level ${n}`;
+export const levelOf = (n, of) => `Level ${n} of ${of}`;
+export const hitsSoFar = (hits, need) => `Hits at this level: ${hits} of ${need}`;
+export const missesInARow = (misses, limit) => `Misses in a row: ${misses} of ${limit}`;
+export const TOP_LEVEL = "Top level. Keep practising to hold it.";
+export const TARGET_LABEL = "Reach this line";
+export const TOO_FEW_LOOPS = "Too few loops to count. Write at least 4 tall loops across the row.";
+export const VERDICT_HIT = "Hit";
+export const VERDICT_MISS = "Not yet";
+// reached the target but slower or shakier than recent tries, so not counted.
+export const VERDICT_NOT_COUNTED = {
+  "big-writing": "Reached the line, but not counted",
+  "steady-tracing": "Accurate, but not counted",
+  rhythm: "On the beat, but not counted",
+};
+export const SLOWER_NOTES = {
+  "big-writing": "Your pace dropped compared with your recent tries. Keep your usual rhythm as you write bigger.",
+  "steady-tracing": "Your pace dropped compared with your recent tries. Keep your usual pace as the guide fades.",
+};
+export const SHAKIER_NOTES = {
+  "big-writing": "Your writing was less smooth than in your recent tries. Keep the loops smooth as you write bigger.",
+  "steady-tracing": "Your line was less smooth than in your recent tries. Keep it smooth as the guide fades.",
+  rhythm: "Your line was less smooth than in your recent tries. Keep it smooth as you follow the dot.",
+};
+export const MEASURE_NAMES = {
+  size: "Size", accuracy: "Accuracy", pace: "Pace", smoothness: "Smoothness", coverage: "How much you traced",
+  timing: "Keeping up", caught: "Caught", reaction: "Speed", extra: "Extra taps",
+};
+const pct = (x) => Math.round(Math.abs(x) * 100);
+const dontCount = (n) => (n === 1 ? "it doesn't" : "they don't");
+export function reachedLine(reached, loops, open = 0, below = 0) {
+  const kind = open || below ? "letters" : "loops";
+  let message = `${reached} of ${loops} ${kind} reached the line.`;
+
+  if (open) {
+    const shape = open === 1 ? "was a spike or bump" : "were spikes or bumps";
+    const loop = open === 1 ? "a loop" : "loops";
+    message += ` ${open} ${shape}, not ${loop}, so ${dontCount(open)} count.`;
+  }
+
+  if (below) {
+    message += ` ${below} started or ended well below the baseline, so ${dontCount(below)} count.`;
+  }
+
+  return message + " Filled dots on your writing mark the ones that reached it.";
+}
+export const PRACTICE_EXPORT_HELP = "Saves every practice try on this device as one file, to help tune the exercises.";
+export const NO_PRACTICE = "No practice tries on this device yet";
+export const sizeSentence = (size, shrink) =>
+  `Your loops averaged ${pct(size)}% of the target height.` +
+  (Number.isFinite(shrink) && Math.abs(shrink) >= 0.05
+    ? ` The last loops in the row were ${pct(shrink)}% ${shrink < 0 ? "smaller" : "bigger"} than the first.`
+    : "");
+export const paceSentence = (pace, vs) =>
+  `${pace.toFixed(1)} loops a second` +
+  (vs == null ? ". Nothing to compare with yet."
+    : Math.abs(vs) < 0.05 ? ", about the same as your recent tries."
+    : `, ${pct(vs)}% ${vs > 0 ? "faster" : "slower"} than your recent tries.`);
+export const smoothSentence = (vs) =>
+  vs == null ? "Nothing to compare with yet."
+    : Math.abs(vs) < 0.05 ? "About as smooth as your recent tries."
+    : vs > 0 ? "Smoother than your recent tries." : "Less smooth than your recent tries.";
+export const paceVs = (vs) =>
+  vs == null ? "Nothing to compare with yet."
+    : Math.abs(vs) < 0.05 ? "About the same pace as your recent tries."
+    : `${pct(vs)}% ${vs > 0 ? "faster" : "slower"} than your recent tries.`;
+// a share as a whole percentage, or "less than 1" so a close line doesn't read as 0%.
+const share = (x) => (x < 0.005 ? "less than 1" : String(pct(x)));
+export const tracingAccuracy = (acc, limit) =>
+  `On average your line was ${share(acc)}% of the spiral's size away from the guide. A hit needs ${pct(limit)}% or less.`;
+export const tracedShare = (cover, what) => `You traced ${pct(cover)}% of the ${what}.`;
+export const keptUp = (lag, lead, limit) =>
+  lag < 0.15 ? "You kept up with the dot."
+    : `On average you were ${lag.toFixed(1)} beats from the dot, mostly ${lead < 0 ? "behind" : "ahead of"} it. ` +
+      `A hit needs ${limit} or less.`;
+export const waveNear = (near, limit) =>
+  `On average your line was ${share(near)}% of the wave's height away from it. A hit needs ${pct(limit)}% or less.`;
+export const caughtSentence = (caught, of, need) => `You caught ${caught} of ${of} circles. A hit needs ${need}.`;
+export const reactionSentence = (ms) =>
+  Number.isFinite(ms) ? `You typically tapped a circle ${(ms / 1000).toFixed(2)} seconds after it appeared.` : "No circles caught yet.";
+export const extraTapsSentence = (n, allowed) =>
+  (n === 0 ? "Every tap landed on a circle." : `${n} tap${n === 1 ? "" : "s"} missed every circle.`) +
+  (allowed > 0 ? ` A hit allows ${allowed} or fewer.` : " A hit allows none.");
+export const LEVEL_UP = {
+  "big-writing": (n) => `Level up. Level ${n} has a taller target line.`,
+  "steady-tracing": (n) => `Level up. Level ${n}'s guide is fainter.`,
+  rhythm: (n) => `Level up. Level ${n} has a faster beat.`,
+  "hand-skills": (n) => `Level up. Level ${n}'s circles start smaller.`,
+};
+const downTo = (n) => `Three misses in a row, so you're back to Level ${n}.`;
+export const LEVEL_DOWN = {
+  "big-writing": (n) => `${downTo(n)} The target line is a little lower.`,
+  "steady-tracing": (n) => `${downTo(n)} The guide is a little clearer.`,
+  rhythm: (n) => `${downTo(n)} The beat is a little slower.`,
+  "hand-skills": (n) => `${downTo(n)} The circles start a little bigger.`,
+};
+export const tooHardToast = (n) => `Level ${n} for today`;
+export const NOT_BUILT = "Not built yet";
+
+// progress tab: first vs latest check-in. both are placed against the same
+// reference, and the caption says one pair of readings isn't a trend.
+export const PROGRESS_BLURB = "Your first check-in next to your latest, measure by measure.";
+export const PROGRESS_EMPTY = "Do two check-ins with the same hand and the same pen or finger to compare them here.";
+export const PROGRESS_CAPTION =
+  "Both check-ins are placed against the same reference group, so the comparison is fair. Single check-ins vary " +
+  "from day to day, so a change between two of them is one reading, not a trend.";
+const INPUT_PHRASE = { pencil: "an Apple Pencil", touch: "a finger", mouse: "a mouse" };
+export const drawnIn = (seconds) => `Drawn in ${seconds.toFixed(1)} seconds`;
+export const REPLAY_MISSING = "No drawing was kept for this check-in.";
+export const progressSetup = (hand, inputType) =>
+  `Comparing check-ins drawn with your ${hand} hand, using ${INPUT_PHRASE[inputType] ?? "the same input"}.`;
+
 // motion, accent colours and the measuring overlay - new copy.
 export const ACCENT_HELP = "Changes the colour of buttons, links and highlights.";
 export const MOTION_HELP = "Reduced turns off moving effects. Automatic follows your device's setting.";
