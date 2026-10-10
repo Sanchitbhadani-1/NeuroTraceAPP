@@ -478,33 +478,137 @@ legend {
 .chip:active span { transform: scale(0.97); opacity: 0.8; }
 fieldset + .sub { margin-top: 10px; }
 
-/* ---------- welcome ---------- */
+/* ---------- home (signed out): intro, log in, what was the About tab ---------- */
 
-#screen-welcome h1 {
+#screen-home h1 {
   margin-top: 32px;
   font-size: calc(40 * var(--px));
   line-height: 1.08;
 }
-#screen-welcome .lede { margin-top: 12px; }
-#screen-welcome .actions { gap: 16px; }
+#screen-home .lede { margin-top: 12px; }
+.home-actions { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+.home-credit { margin-top: 20px; }
 
-/* ---------- home ---------- */
+/* ---------- dashboard ---------- */
 
-#screen-home .brand-name { font-size: calc(21 * var(--px)); }
+#screen-dashboard .brand-name { font-size: calc(21 * var(--px)); }
 .checkin { margin-top: 16px; gap: 16px; }
 .checkin-row { display: flex; gap: 16px; align-items: center; }
 .checkin-row > div { flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
-#screen-home h1 {
+#screen-dashboard h1 {
   margin: 0;
   font-size: calc(24 * var(--px));
   line-height: 1.15;
 }
-#screen-home h1 + .lede { margin: 0; line-height: 1.45; }
+
+#screen-dashboard h1 + .lede { margin: 0; line-height: 1.45; }
 .mini { width: 92px; height: 92px; flex-shrink: 0; }
 .mini .art-guide { stroke-width: 7; }
 .mini .art-trace { stroke-width: 13; }
 .empty { margin-top: 12px; padding: 24px 20px; color: var(--ink2); text-wrap: pretty; }
-#screen-home .actions { gap: 8px; }
+
+#screen-dashboard .actions { gap: 8px; }
+
+/* medication: a placeholder form until saving exists. */
+.med { margin-top: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-weight: 600; }
+.text-input {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 var(--hair) var(--guide);
+  background: var(--surface);
+}
+.text-input::placeholder { color: var(--ink2); opacity: 1; }
+
+/* ---------- testing ---------- */
+
+#screen-testing .checkin { margin-top: 24px; }
+
+/* ---------- training: sample layout until the exercises exist ---------- */
+
+.title-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.title-row h1 { margin-top: 0; }
+.title-row + .lede { margin-top: 10px; }
+.focus { margin-top: 12px; }
+.focus .btn { margin-top: 4px; }
+.exercise-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.exercise {
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--ease);
+}
+.exercise:active { transform: scale(0.97); }
+.exercise-name { font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+/* which days this week had practice: filled = practised. a count, not a verdict. */
+.week { margin-top: 12px; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.week-dots { display: flex; gap: 10px; }
+.week-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--fill); }
+.week-dots .on { background: var(--accent); }
+.week .num { font-weight: 600; }
+.week-link { margin-left: auto; gap: 2px; }
+
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.week-note { flex-basis: 100%; order: 1; }
+
+/* ---------- training: one exercise ---------- */
+
+/* .btn and .actions set display, which would beat the hidden attribute. */
+.btn[hidden], .actions[hidden] { display: none; }
+.pad.pad-wide { width: 100%; aspect-ratio: 3 / 2; }
+.ex-progress { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.hit-dots { display: flex; gap: 8px; }
+.hit-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--fill); }
+.hit-dots .on { background: var(--accent); }
+.ex-row { display: flex; flex-direction: column; gap: 2px; padding-top: 12px; border-top: var(--hair) solid var(--line); }
+/* what to do right now (watch, picture it, follow the dot). always two lines
+   tall on a phone and one on an iPad, so the pad below never moves while a
+   pen is on it - every message fits in that. */
+.ex-phase { margin-top: 10px; min-height: 3em; font-weight: 600; }
+@media (min-width: 700px) {
+  .ex-phase { min-height: 1.5em; }
+}
+.ex-phase + .pad { margin-top: 10px; }
+.pad[hidden] { display: none; }
+.ex-row-name { font-weight: 600; }
+.ex-level-note { font-weight: 600; }
+.text-btn {
+  align-self: center;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.text-btn:disabled { color: var(--ink2); cursor: default; }
+
+/* ---------- progress: first vs latest check-in ---------- */
+/* the first check-in is the hollow dot, the latest the filled one. both are
+   labelled in words above the track, so the dots never carry it alone. */
+
+#progress-body { display: flex; flex-direction: column; }
+.progress-meta { margin-top: 16px; }
+.replay-both { margin-top: 12px; }
+.snapshot-pair { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.snapshot { gap: 4px; }
+.snapshot .card-title { font-size: calc(19 * var(--px)); }
+.thumb { width: 100%; aspect-ratio: 1; margin-top: 8px; }
+.dot-legend { display: flex; gap: 20px; font-size: calc(15 * var(--px)); color: var(--ink2); }
+.dot-legend > span { display: flex; align-items: center; gap: 8px; }
+.legend-key { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+.legend-key.then { background: transparent; box-shadow: inset 0 0 0 2.5px var(--accent); }
+.track-dot.then { background: var(--surface); box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 3px var(--surface); }
 
 /* ---------- drawing ---------- */
 
@@ -724,7 +828,7 @@ fieldset + .sub { margin-top: 10px; }
 .history-when { font-weight: 600; line-height: 1.3; }
 .chevron { width: 20px; height: 20px; color: var(--ink2); stroke-width: 2.2; }
 
-/* ---------- tabs: home, settings, about ---------- */
+/* ---------- tabs: dashboard, testing, training, progress, settings ---------- */
 
 /* room under the last card for the tab bar. */
 .tabbed { padding-bottom: calc(max(env(safe-area-inset-bottom), 8px) + 104px); }
@@ -740,7 +844,7 @@ fieldset + .sub { margin-top: 10px; }
   bottom: 0;
   padding: 6px max(env(safe-area-inset-right), 12px) max(env(safe-area-inset-bottom), 8px) max(env(safe-area-inset-left), 12px);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   background: var(--surface);
   border-top: var(--hair) solid var(--line);
 }
@@ -835,38 +939,39 @@ fieldset + .sub { margin-top: 10px; }
 .results-main, .results-side { display: contents; }
 
 @media (min-width: 700px) {
-  #screen-draw { max-width: 760px; }
-  .tabbar { grid-template-columns: repeat(3, minmax(0, 160px)); justify-content: center; }
+  #screen-draw, #screen-exercise { max-width: 760px; }
+  .tabbar { grid-template-columns: repeat(5, minmax(0, 160px)); justify-content: center; }
+  .exercise-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 @media (min-width: 900px) {
   .tabbed, #screen-results { max-width: 1040px; }
-
-  #screen-home {
+  #screen-dashboard {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-    grid-template-areas: "brand brand" "card title" "card list" "lock list";
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas: "brand brand" "card title" "card list" "med list" "lock list";
+    grid-template-rows: auto auto auto auto 1fr;
     column-gap: 32px;
     align-content: start;
   }
-  #screen-home > .brand { grid-area: brand; }
-  #screen-home > .checkin { grid-area: card; align-self: start; margin-top: 16px; }
-  #screen-home > .section-title { grid-area: title; margin-top: 16px; }
-  #screen-home > #history { grid-area: list; }
-  #screen-home > .actions { grid-area: lock; align-self: end; }
+  #screen-dashboard > .brand { grid-area: brand; }
+  #screen-dashboard > .checkin { grid-area: card; align-self: start; margin-top: 16px; }
+  #screen-dashboard > .med { grid-area: med; align-self: start; }
+  #screen-dashboard > .section-title { grid-area: title; margin-top: 16px; }
+  #screen-dashboard > #history { grid-area: list; }
+  #screen-dashboard > .actions { grid-area: lock; align-self: end; }
 
   #results-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
   .results-main, .results-side { display: flex; flex-direction: column; }
   .results-main { position: sticky; top: 56px; }
   .results-side > .result-card:first-child { margin-top: 0; }
-
-  /* Settings and About: cards flow into two columns, headings kept with
-     their card. */
-  #screen-settings, #screen-about-app { display: block; columns: 2; column-gap: 32px; }
-  #screen-settings > h1, #screen-about-app > .brand, #screen-about-app > h1, #screen-about-app > .lede { column-span: all; }
-  #screen-settings .section-title, #screen-about-app .section-title { break-after: avoid; }
-  #screen-settings .card, #screen-about-app .card, #screen-about-app .actions { break-inside: avoid; }
+  /* Settings: cards flow into two columns, headings kept with their card. */
+  #screen-settings { display: block; columns: 2; column-gap: 32px; }
+  #screen-settings > h1 { column-span: all; }
+  #screen-settings .section-title { break-after: avoid; }
+  #screen-settings .card { break-inside: avoid; }
+  /* single-column tabs: a readable width rather than the full 1040. */
+  #screen-testing, #screen-training, #screen-progress { max-width: 760px; }
   #screen-settings .section-title:first-of-type { margin-top: 20px; }
 }
 
