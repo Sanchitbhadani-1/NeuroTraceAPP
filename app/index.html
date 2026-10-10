@@ -29,14 +29,14 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-<!-- one <section class="screen"> per route (#welcome, #home, ...) - app.js
+<!-- one <section class="screen"> per route (#home, #dashboard, ...) - app.js
      shows one at a time. full sentences get filled in from copy.js through
      data-copy (Global Constraint 10), the markup only holds headings and
      control labels. -->
 
-<!-- ================= personal check-in (iPhone first) ================= -->
+<!-- ================= signed out: home only. then the check-in flow ================= -->
 
-<section class="screen" id="screen-welcome" data-title="Welcome" hidden>
+<section class="screen" id="screen-home" data-title="Home" hidden>
   <header class="brand">
     <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
     <span class="brand-name">NeuroTrace</span>
@@ -50,18 +50,28 @@
   </div>
   <h1 tabindex="-1">Measure how you move.</h1>
   <p class="lede" data-copy="PITCH TRACKS"></p>
-  <div class="actions">
-    <p class="lock">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-      <span data-copy="ON_DEVICE"></span>
-    </p>
-    <a class="btn btn-primary" href="#consent">Get started</a>
+  <div class="home-actions">
+    <button type="button" class="btn btn-primary" id="login">Log in</button>
+    <p class="sub center" data-copy="LOGIN_NOTE"></p>
   </div>
+  <div class="card notice">
+    <h2 class="card-title">What it is not</h2>
+    <p data-copy="NOT_A_DIAGNOSIS"></p>
+  </div>
+  <h2 class="section-title">How it works</h2>
+  <ol class="card how" id="how-steps"><!-- copy.HOW_STEPS, from app.js --></ol>
+  <h2 class="section-title">Who you are compared with</h2>
+  <p class="card" id="about-reference"></p>
+  <p class="lock about-lock">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    <span data-copy="ON_DEVICE"></span>
+  </p>
+  <p class="sub center home-credit" data-copy="CREDIT"></p>
 </section>
 
 <section class="screen" id="screen-consent" data-title="Before you start" hidden>
   <div class="bar">
-    <a class="back" href="#welcome"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
+    <a class="back" href="#home"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
     <div class="segments" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1" aria-valuetext="Step 1 of 3">
       <span class="on"></span><span></span><span></span>
     </div>
@@ -109,7 +119,7 @@
 
 <section class="screen" id="screen-draw" data-title="Trace the spiral" hidden>
   <div class="bar">
-    <a class="bar-link" href="#home">Cancel</a>
+    <a class="bar-link" href="#testing">Cancel</a>
     <div class="bar-title" id="draw-count">Spiral 1 of 1</div>
   </div>
   <div class="segments" id="draw-progress" role="progressbar" aria-label="Spirals drawn" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
@@ -133,17 +143,52 @@
 <section class="screen" id="screen-results" data-title="Results" hidden>
   <div class="meta-row">
     <span class="sub" id="results-meta"></span>
-    <a class="bar-link strong" href="#home">Done</a>
+    <a class="bar-link strong" href="#dashboard">Done</a>
   </div>
   <h1 tabindex="-1" id="results-title"></h1>
   <div id="results-body"></div>
   <div class="actions pair">
     <a class="btn btn-secondary" href="#about">Check again</a>
-    <a class="btn btn-primary" href="#home">Done</a>
+    <a class="btn btn-primary" href="#dashboard">Done</a>
   </div>
 </section>
 
-<section class="screen tabbed" id="screen-home" data-title="Home" hidden>
+<!-- one training exercise (app.js, train.js). no tab bar: it's a focused
+     task with its own way back to Training. -->
+<section class="screen" id="screen-exercise" data-title="Exercise" hidden>
+  <div class="bar">
+    <a class="back" href="#training"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Training</a>
+    <div class="bar-title" id="ex-level"></div>
+  </div>
+  <h1 tabindex="-1" id="ex-title"></h1>
+  <p class="lede" id="ex-instruction"></p>
+  <div class="ex-progress" id="ex-progress"></div>
+  <p class="ex-phase" id="ex-phase" aria-live="polite"></p>
+  <div class="pad pad-wide"><canvas id="ex-pad" role="img" aria-label="Writing area with a baseline and a dashed target line"></canvas></div>
+  <div class="pad pad-wide" hidden><canvas id="ex-tap" role="img" aria-label="Tapping area. Circles appear here one at a time."></canvas></div>
+  <div role="status">
+    <p class="card status" id="ex-status" hidden>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/></svg>
+      <span><strong></strong><span></span></span>
+    </p>
+  </div>
+  <div id="ex-result" aria-live="polite"></div>
+  <div class="actions pair" id="ex-draw-actions">
+    <button type="button" class="btn btn-secondary" id="ex-clear">Start over</button>
+    <button type="button" class="btn btn-primary" id="ex-done" disabled>Done</button>
+  </div>
+  <div class="actions" id="ex-start-actions" hidden>
+    <button type="button" class="btn btn-primary" id="ex-start">Start</button>
+  </div>
+  <div class="actions" id="ex-next-actions" hidden>
+    <button type="button" class="btn btn-primary" id="ex-next">Next try</button>
+  </div>
+  <button type="button" class="text-btn" id="ex-too-hard">Too hard today</button>
+</section>
+
+<!-- ================= tabs: dashboard, testing, training, progress, settings ================= -->
+
+<section class="screen tabbed" id="screen-dashboard" data-title="Dashboard" hidden>
   <header class="brand">
     <span class="brand-mascot" data-mascot="idle"></span>
     <span class="brand-name">NeuroTrace</span>
@@ -158,6 +203,21 @@
     </div>
     <a class="btn btn-primary" href="#about">Start a check-in</a>
   </div>
+  <div class="card med" role="group" aria-labelledby="med-title">
+    <h2 class="card-title" id="med-title">Your medication</h2>
+    <p class="sub" data-copy="MED_BLURB"></p>
+    <div class="field">
+      <label class="field-label" for="med-name">Medication</label>
+      <input class="text-input" id="med-name" type="text" autocomplete="off" placeholder="Name">
+    </div>
+    <div class="field">
+      <label class="field-label" for="med-dose">Dose and times</label>
+      <input class="text-input" id="med-dose" type="text" autocomplete="off" placeholder="For example, 1 tablet at 8 am and 2 pm">
+    </div>
+    <button type="button" class="btn btn-secondary" disabled>Save medication</button>
+    <p class="sub" data-copy="MED_NOT_SAVED"></p>
+  </div>
+
   <h2 class="section-title">Your check-ins</h2>
   <div id="history">
     <div class="card empty"><span class="empty-mascot" data-mascot="idle"></span><p data-copy="HISTORY_EMPTY"></p></div>
@@ -170,7 +230,59 @@
   </div>
 </section>
 
-<!-- ================= tabs: settings and about ================= -->
+<section class="screen tabbed" id="screen-testing" data-title="Testing" hidden>
+  <h1 tabindex="-1">Testing</h1>
+  <p class="lede" data-copy="TESTING_BLURB"></p>
+  <div class="card checkin">
+    <div class="checkin-row">
+      <div>
+        <h2 class="card-title">Spiral test</h2>
+        <p class="sub" data-copy="CHECKIN_BLURB"></p>
+      </div>
+      <svg class="mini" viewBox="0 0 340 340" aria-hidden="true"><path class="art-guide"/><path class="art-trace"/></svg>
+    </div>
+    <a class="btn btn-primary" href="#about">Start the spiral test</a>
+  </div>
+</section>
+
+<!-- the exercise cards are real (app.js fills in each level). Today's focus
+     and This week are still sample layouts and say so (ClaimsRules, demo and
+     data honesty). -->
+<section class="screen tabbed" id="screen-training" data-title="Training" hidden>
+  <h1 tabindex="-1">Training</h1>
+  <p class="lede" data-copy="TRAINING_BLURB"></p>
+  <h2 class="section-title">Today&rsquo;s focus</h2>
+  <div class="card focus">
+    <div class="card-head"><h3 class="card-title">Steady tracing</h3><span class="pill">Sample</span></div>
+    <p class="sub">Level 4 &middot; about 8 minutes</p>
+    <p data-copy="TRAINING_WHY"></p>
+    <p class="sub" data-copy="FOCUS_SAMPLE"></p>
+    <button type="button" class="btn btn-primary" data-soon>Start</button>
+  </div>
+  <h2 class="section-title">All exercises</h2>
+  <div class="exercise-grid">
+    <button type="button" class="card exercise" data-exercise="big-writing"><span class="exercise-name">Big writing</span><span class="sub"></span><span class="sub"></span></button>
+    <button type="button" class="card exercise" data-exercise="rhythm"><span class="exercise-name">Rhythm</span><span class="sub"></span><span class="sub"></span></button>
+    <button type="button" class="card exercise" data-exercise="steady-tracing"><span class="exercise-name">Steady tracing</span><span class="sub"></span><span class="sub"></span></button>
+    <button type="button" class="card exercise" data-exercise="hand-skills"><span class="exercise-name">Hand skills</span><span class="sub"></span><span class="sub"></span></button>
+  </div>
+  <h2 class="section-title">This week</h2>
+  <div class="card week">
+    <span class="pill week-pill">Sample</span>
+    <div class="week-dots" role="img" aria-label="Practised on 3 of 5 planned days this week">
+      <span class="on"></span><span class="on"></span><span></span><span class="on"></span><span></span><span></span><span></span>
+    </div>
+    <p class="num">3 of 5 days</p>
+    <p class="sub week-note" data-copy="WEEK_SAMPLE"></p>
+    <a class="bar-link strong week-link" href="#progress">See progress<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+  </div>
+</section>
+
+<section class="screen tabbed" id="screen-progress" data-title="Progress" hidden>
+  <h1 tabindex="-1">Progress</h1>
+  <p class="lede" data-copy="PROGRESS_BLURB"></p>
+  <div id="progress-body"><!-- first vs latest check-in, from app.js --></div>
+</section>
 
 <section class="screen tabbed" id="screen-settings" data-title="Settings" hidden>
   <h1 tabindex="-1">Settings</h1>
@@ -228,31 +340,13 @@
   <div class="card">
     <p class="sub" data-copy="COLLECTION_HELP"></p>
     <a class="btn btn-secondary" href="#collect">Open collection mode</a>
+    <p class="sub" data-copy="PRACTICE_EXPORT_HELP"></p>
+    <button type="button" class="btn btn-secondary" id="export-practice">Export practice tries</button>
   </div>
-</section>
-
-<section class="screen tabbed" id="screen-about-app" data-title="About" hidden>
-  <header class="brand">
-    <span class="brand-mascot" data-mascot="idle"></span>
-    <span class="brand-name">NeuroTrace</span>
-  </header>
-  <h1 tabindex="-1">About</h1>
-  <p class="lede" data-copy="PITCH TRACKS"></p>
-  <div class="card notice">
-    <h2 class="card-title">What it is not</h2>
-    <p data-copy="NOT_A_DIAGNOSIS"></p>
-  </div>
-  <h2 class="section-title">How it works</h2>
-  <ol class="card how" id="how-steps"><!-- copy.HOW_STEPS, from app.js --></ol>
-  <h2 class="section-title">Who you are compared with</h2>
-  <p class="card" id="about-reference"></p>
-  <p class="lock about-lock">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
-    <span data-copy="ON_DEVICE"></span>
-  </p>
-  <div class="actions">
-    <a class="btn btn-secondary" href="#welcome">Show the introduction again</a>
-    <p class="sub center" data-copy="CREDIT"></p>
+  <h2 class="section-title">Account</h2>
+  <div class="card">
+    <p class="sub" data-copy="LOGOUT_HELP"></p>
+    <button type="button" class="btn btn-secondary" id="logout">Log out</button>
   </div>
 </section>
 
@@ -261,7 +355,7 @@
   <p class="lede" id="error-message"></p>
   <p class="lede" data-copy="NOTHING_SCORED"></p>
   <div class="actions">
-    <a class="btn btn-secondary" href="#home">Home</a>
+    <a class="btn btn-secondary" href="#dashboard">Dashboard</a>
   </div>
 </section>
 
@@ -273,7 +367,7 @@
       <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
       <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
     </div>
-    <a href="#home">Exit</a>
+    <a href="#settings">Exit</a>
   </header>
   <div class="col">
     <h1 tabindex="-1">Tester collection</h1>
@@ -307,7 +401,7 @@
       <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
       <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
     </div>
-    <a href="#home">Exit</a>
+    <a href="#settings">Exit</a>
   </header>
   <div class="col">
     <div class="meta-row">
@@ -358,7 +452,7 @@
       <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
       <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
     </div>
-    <a href="#home">Exit</a>
+    <a href="#settings">Exit</a>
   </header>
   <div class="col centred">
     <div class="bar">
@@ -390,7 +484,7 @@
       <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
       <span class="brand-name">NeuroTrace</span><span class="topbar-mode">Collection mode</span>
     </div>
-    <a href="#home">Exit</a>
+    <a href="#settings">Exit</a>
   </header>
   <div class="col centred">
     <div class="done-mark"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
@@ -406,20 +500,28 @@
   </div>
 </section>
 
-<!-- the tab bar: only on the three tab screens (app.js). -->
+<!-- the tab bar: only on the five tab screens, which need a login (app.js). -->
 <nav class="tabbar" id="tabbar" aria-label="Main" hidden>
   <span class="tab-lens" aria-hidden="true"></span>
-  <a href="#home" data-tab="home">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>
-    <span>Home</span>
+  <a href="#dashboard" data-tab="dashboard">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+    <span>Dashboard</span>
+  </a>
+  <a href="#testing" data-tab="testing">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.8 12.0L12.9 12.3L13.0 12.6L12.9 13.0L12.6 13.4L12.2 13.7L11.7 13.9L11.1 13.9L10.5 13.7L9.9 13.3L9.4 12.8L9.2 12.0L9.1 11.1L9.3 10.3L9.8 9.4L10.5 8.7L11.5 8.3L12.6 8.1L13.7 8.2L14.8 8.7L15.8 9.6L16.5 10.7L16.9 12.0L16.9 13.4L16.4 14.9L15.6 16.1L14.3 17.1L12.8 17.8L11.1 18.0L9.4 17.6L7.8 16.8L6.5 15.6L5.5 13.9L5.1 12.0L5.2 10.0L5.8 8.0L7.1 6.3L8.8 5.0L10.9 4.2L13.1 4.0L15.4 4.5L17.5 5.6L19.3 7.3L20.5 9.5L21.0 12.0"/></svg>
+    <span>Testing</span>
+  </a>
+  <a href="#training" data-tab="training">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="6" width="3" height="12" rx="1"/><rect x="16" y="6" width="3" height="12" rx="1"/><rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><path d="M8 12h8"/></svg>
+    <span>Training</span>
+  </a>
+  <a href="#progress" data-tab="progress">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M5 16l4-5 4 3 6-8"/></svg>
+    <span>Progress</span>
   </a>
   <a href="#settings" data-tab="settings">
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
     <span>Settings</span>
-  </a>
-  <a href="#about-app" data-tab="about-app">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>
-    <span>About</span>
   </a>
 </nav>
 <!-- compact title bar: the screen's h1, shown once the large title scrolls away. -->

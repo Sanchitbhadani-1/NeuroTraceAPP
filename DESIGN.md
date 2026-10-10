@@ -53,7 +53,7 @@ Sizes are written as `calc(N * var(--px))` so they follow iOS Dynamic Type. On i
 
 | Role | Size | Notes |
 |---|---|---|
-| Welcome headline | 40 | Newsreader 500 |
+| Home headline (signed out) | 40 | Newsreader 500 |
 | Collection titles | 44 / 40 | iPad |
 | Large title (`h1`) | 34 | Newsreader 500 |
 | Result verdict | 32 | Newsreader 500, text from `copy.TIERS` |
@@ -90,7 +90,7 @@ Numbers that change use `font-variant-numeric: tabular-nums` (`.num`).
 - **Segmented control (`.segmented` > `.segment`)** puts one choice from 2–3 in a single pad, with a sliding white thumb (`#636366` in dark). It needs no script, because the thumb position comes from `:has()`. Used for Theme, Motion and the results spiral picker.
 - **Accent row (`.accents` > `.accent-option`)** is seven 32 px dots in one row. The selected dot is ringed and ticked, and its name appears in the legend (`.legend-split`), so the choice never depends on colour alone.
 - **Cards (`.card`)** are `--surface` with a 16 px radius, a hairline border and 20 px padding. They are never nested.
-- **Tab bar (`.tabbar`)** is docked to the bottom edge, solid `--surface`, with one top hairline. It holds Home, Settings and About, each with an icon and a 15 px label. The current tab uses accent colour plus the `.tab-lens` pill behind its icon, which slides between tabs. It appears only on those three screens.
+- **Tab bar (`.tabbar`)** is docked to the bottom edge, solid `--surface`, with one top hairline. It holds Dashboard, Testing, Training, Progress and Settings, each with an icon and a 15 px label. The current tab uses accent colour plus the `.tab-lens` pill behind its icon, which slides between tabs. It appears only on those five screens, once logged in. Logged out, the only screen is Home, which has no tab bar.
 - **Measure row (`.measure`)** has three parts:
   - the name
   - the plain-language percentile sentence (from `copy.measureSentence`)
@@ -105,11 +105,11 @@ Numbers that change use `font-variant-numeric: tabular-nums` (`.num`).
 Same system, wider layout. There's no separate iPad app; it's all media queries in `styles.css`.
 
 - **700 px and up:** body text is 19 px. The drawing column widens to 760 px, so the pad reaches about 700 px on a portrait iPad. The tabs group in the centre, up to 160 px each.
-- **900 px and up** (landscape, 12.9-inch portrait): the tab screens and results widen to 1040 px.
-  - **Home:** check-in card on the left, history on the right.
+- **900 px and up** (landscape, 12.9-inch portrait): Dashboard, Settings and results widen to 1040 px. Testing, Training and Progress stop at 760 px.
+  - **Dashboard:** check-in and medication cards on the left, history on the right.
   - **Results:** the reading (verdict, reference, meaning, next steps, drawing) is a pinned left column; "What stood out" and "Every measure" sit on the right. On a phone, both wrappers use `display: contents` and CSS `order`, so the phone sequence is unchanged.
-  - **Settings and About:** cards flow into two columns.
-- **Kept to one narrow column on every size:** welcome, consent, about-you and the participant form. Collection mode is already laid out for the iPad.
+  - **Settings:** cards flow into two columns.
+- **Kept to one narrow column on every size:** Home (signed out), consent, about-you and the participant form. Collection mode is already laid out for the iPad.
 
 ## Motion
 
