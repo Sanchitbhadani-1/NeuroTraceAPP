@@ -4,7 +4,7 @@ from scipy.signal import butter, filtfilt, welch, find_peaks
 from neurotrace.preprocess import preprocess_trace
 
 
-# --- spiral geometry -------------------------------------------------
+# spiral geometry________________________
 
 # The ideal spiral, fitted to THIS drawing instead of a saved template
 def spiral_fit_residual(x, y, min_turns=1.0):
@@ -14,80 +14,79 @@ def spiral_fit_residual(x, y, min_turns=1.0):
     # How far round the pen has gone, and how far out it is
 
     span = abs(theta[-1] - theta[0]) / (2 * np.pi)
+    # Measures the amount of turns in the spiral
+
     if span < min_turns:
         raise ValueError(f"trace covers only {span:.2f} turns, too little to fit a spiral")
-    # Measured from the centroid, which sits INSIDE a short arc and so reads
-    # high: a 0.1 turn scribble measures 0.56. 1.0 rejects those, and the
-    # shortest real UCI spiral (1.83 turns drawn) still measures 1.6.
 
-    A = np.column_stack([np.ones_like(theta), theta, np.cos(theta), np.sin(theta)])
-    # A spiral IS "radius grows in a straight line with angle", so columns 1
-    # and 2 are the spiral itself. Clockwise only flips the sign of the slope.
-    # Columns 3 and 4 soak up a wrong centre, which shows up as a cos/sin
-    # wobble in r. Without them a PERFECT spiral scores 0.048 instead of 0.
+    theta_info = np.column_stack([np.ones(len(theta)), theta, np.cos(theta), np.sin(theta)])
+    # Create a 2D matrix with a column of 1s, a column of theta, 
+    # and columns of cos(theta) and sin(theta)
 
-    p, *_ = np.linalg.lstsq(A, r, rcond=None)
+    p, *_ = np.linalg.lstsq(theta_info, r, rcond=None)
+    # Get only the coefficients of the least squares solution and ignore residuals and rank
 
-    return r - A @ p
-    # SIGNED - positive means further out than ideal, negative means inside.
-    # Four columns, one solve. In JavaScript: build A'A and A'r and do
-    # Gaussian elimination on a 4x4. No optimizer needed.
+    ideal = p[0] + p[1] * theta + p[2] * np.cos(theta) + p[3] * np.sin(theta)
+    return r - ideal
+    # Return the difference between the actual radius and the fitted (perfect)radius
 
 
 # How many times the pen properly doubled back
 def major_radius_reversals(x, y, min_retrace=0.10):
-    # min_retrace is in NORMALIZED units, so only valid after normalize().
-    # Counting every sign flip instead counts quantization jitter: the raw
-    # version scored AUC 0.45 on UCI and ran backwards. See docs/DATASETS.md
-
     r = np.hypot(x, y)
 
     count = 0
     direction = 0
     extreme = r[0]
-    # Remember the furthest the radius has got so far, and which way we're going
+    # Remember the furthest the radius has got so far, and which way it's going
 
-    for v in r:
+    for s in r:
         if direction == 0:
-            if v > extreme + min_retrace:
-                direction, extreme = 1, v
-            elif v < extreme - min_retrace:
-                direction, extreme = -1, v
-            # Haven't moved far enough yet to know which way we started
+            if s > extreme + min_retrace:
+                direction, extreme = 1, s
+            elif s < extreme - min_retrace:
+                direction, extreme = -1, s
+            # Based on where the extreme moved, we can determine direction and set new extreme
 
         elif direction == 1:
-            if v > extreme:
-                extreme = v
-            elif v < extreme - min_retrace:
-                count, direction, extreme = count + 1, -1, v
-            # Going out. Only a pull-back bigger than min_retrace counts
+            if s > extreme:
+                extreme = s
+            elif s < extreme - min_retrace:
+                count, direction, extreme = count + 1, -1, s
+            # When radius decreases, count it, set new direction, and set new extreme
 
         else:
-            if v < extreme:
-                extreme = v
-            elif v > extreme + min_retrace:
-                count, direction, extreme = count + 1, 1, v
-            # Going in. Same rule the other way
+            if s < extreme:
+                extreme = s
+            elif s > extreme + min_retrace:
+                count, direction, extreme = count + 1, 1, s
+            # When radius increases, count it, set new direction, and set new extreme
 
     return count
-    # A plain loop on purpose - it ports to JavaScript line for line
 
+# kinematics ________________________
 
-# --- kinematics ------------------------------------------------------
-
-# Speed, acceleration and jerk - needs an evenly sampled trace
+# Speed, acceleration and jerk all need an evenly sampled trace
 def kinematics(t, x, y):
 
     vx, vy = np.gradient(x, t), np.gradient(y, t)
+    # Finds the velocity for each x and y using its nieghbords, and divides by time difference between neighbors
+
     speed = np.hypot(vx, vy)
-    # np.gradient not np.diff, so these come back the same length as the input
+    # Finds the magnitude velocity using hypotneuse
 
     ax, ay = np.gradient(vx, t), np.gradient(vy, t)
+    # Same thing as the velocity equation, but takes the derivative of velocity
+
     accel = np.hypot(ax, ay)
+    # Finds magnitude acceleration using hypotneuse
 
     jx, jy = np.gradient(ax, t), np.gradient(ay, t)
-    jerk = np.hypot(jx, jy)
+    # Measures jerk (derivative of acceleration) using neighbors and divides by time difference between neighbors
 
+    jerk = np.hypot(jx, jy)
+    # Finds magnitude jerk using hypotneuse
+    
     return speed, accel, jerk
 
 

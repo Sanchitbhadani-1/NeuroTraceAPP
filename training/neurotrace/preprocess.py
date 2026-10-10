@@ -134,7 +134,7 @@ def low_pass(t, x, y, fs=100.0, cutoff=15.0, order=4):
     # Filters forwards then backwards so nothing shifts in time
 
 
-# The one chain everything else calls - THE ORDER MATTERS, the JavaScript
+# The one chain everything else calls. THE ORDER MATTERS, the JavaScript
 # has to do these same steps in this same order
 def preprocess_trace(t, x, y, fs=100.0, cutoff=15.0, trim=True):
 
