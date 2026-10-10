@@ -32,9 +32,22 @@ function deviceLabel() {
   return navigator.userAgent.match(/iPhone|iPad/)?.[0] ?? (navigator.platform || "unknown");
 }
 
+// the check-in's guide: the 4-turn spiral, starting at the centre.
+function spiralGuide(ctx, w, h) {
+  ctx.strokeStyle = cssVar("--guide");
+  ctx.lineWidth = Math.max(2, w / 180);
+  ctx.beginPath();
+  const maxR = Math.min(w, h) / 2 - 20;
+  for (const [x, y] of spiralPoints(0, maxR, TURNS, 1000)) ctx.lineTo(w / 2 + x, h / 2 + y);
+  ctx.stroke();
+}
+
 // onInk(info) runs when the trial's ink changes without the caller asking:
 // at every stroke start ({}) and when a resize wipes it ({ cleared: "resize" }).
-export function createPad(canvas, { onInk }) {
+// guide(ctx, w, h) draws what sits under the ink - training exercises pass
+// their own, everything else gets the spiral. overlay(ctx, w, h), if given,
+// draws over the ink on every repaint.
+export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }) {
   const ctx = canvas.getContext("2d");
   const halo = document.createElement("span");
   halo.className = "pad-start";
@@ -53,13 +66,7 @@ export function createPad(canvas, { onInk }) {
   function draw() {
     if (!w) return; // not laid out yet (screen hidden), the ResizeObserver draws it when it shows
     ctx.clearRect(0, 0, w, h);
-
-    ctx.strokeStyle = cssVar("--guide");
-    ctx.lineWidth = Math.max(2, w / 180);
-    ctx.beginPath();
-    const maxR = Math.min(w, h) / 2 - 20;
-    for (const [x, y] of spiralPoints(0, maxR, TURNS, 1000)) ctx.lineTo(w / 2 + x, h / 2 + y);
-    ctx.stroke();
+    guide(ctx, w, h);
 
     if (dot) {
       ctx.fillStyle = cssVar("--accent");
@@ -69,6 +76,7 @@ export function createPad(canvas, { onInk }) {
     }
 
     starts.forEach((start, i) => ink(start, starts[i + 1] ?? samples.length));
+    overlay?.(ctx, w, h);
   }
 
   // strokes samples[from - 1 .. to) - or, for a stroke's first sample, a
@@ -181,6 +189,10 @@ export function createPad(canvas, { onInk }) {
   return {
     reset,
     showStartDot,
+    redraw: draw, // repaint after the overlay's content changes
+    // the event time of the trial's first sample (performance.now() clock), or
+    // null before any ink - lets a caller line the samples up with its own clock.
+    startedAt: () => (samples.length ? t0 : null),
     hasInk: () => samples.length > 0,
     // copies: the pad stays live and a kept trial can't grow after its
     // features were computed.
