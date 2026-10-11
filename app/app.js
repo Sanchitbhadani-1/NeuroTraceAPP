@@ -1,27 +1,35 @@
-// app shell: a hash router over the <section class="screen"> elements in
-// index.html. signed out there's only the home page; signed in, the five tabs
-// (dashboard, testing, training, progress, settings), the check-in flow
-// (consent -> about you -> draw -> results) and collection mode.
-// scoring lives in score.js, every sentence in copy.js, storage in store.js.
-
 import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "./nt-features.js";
 import { checkScoringFiles, scoreSession } from "./score.js";
 import * as copy from "./copy.js";
-import { getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment, clearAssessments, saveCollected, listCollected, markExported, subjects, newSubjectId, saveTrainingTry, listTrainingTries, getTrainingState, setTrainingState } from "./store.js";
+import {
+  getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment, clearAssessments,
+  saveCollected, listCollected, markExported, subjects, newSubjectId,
+  saveTrainingTry, listTrainingTries, getTrainingState, setTrainingState,
+} from "./store.js";
 import {
   EXERCISES, HITS_TO_LEVEL_UP, MISSES_TO_LEVEL_DOWN, newLevelState, applyTry, tooHard, scoreBigWriting,
   pointAlong, tracingPath, scoreTracing, TRACE_LIMIT, rhythmPath, scoreRhythm, RHYTHM_BEATS, COUNT_IN, RHYTHM_LAG, RHYTHM_NEAR,
   scoreTargets, targetRadius, TARGETS, CATCH_SHARE, TAP_PRECISION,
 } from "./train.js";
-import { createPad, spiralPoints } from "./pad.js";
+import { createPad, spiralPoints, cssVar } from "./pad.js";
 import { reduced, applyMotion, swap, moveLens, reveal, countUp, watchTitle, toast, mountMascots, measuring } from "./motion.js";
 
-// ---------- spiral art (the guide spiral itself is pad.js's spiralPoints) ----------
+const $ = (id) => document.getElementById(id);
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+const card = (title, ...children) => {
+  const c = el("section", "card result-card");
+  c.append(el("h2", null, title), ...children);
+  return c;
+};
 
-// a believable hand-drawn line for the home hero and check-in art: the guide spiral
-// pushed in and out along its radius by a slow wobble plus a little jitter,
-// faded in over the first fifth so it starts on the centre. same recipe as
-// the design canvas so the art matches the mockups.
+const CHEVRON = '<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+const PLAY_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>';
+
 function handDrawn(r1, turns, steps) {
   return spiralPoints(0, r1, turns, steps).map(([x, y], i) => {
     const p = i / steps;
@@ -31,10 +39,6 @@ function handDrawn(r1, turns, steps) {
     return [x + dr * Math.cos(th), y + dr * Math.sin(th)];
   });
 }
-
-// ---------- brand mark and spiral art: drawn once on load ----------
-// every piece of art is a 340 × 340 viewBox centred on (170, 170), the
-// geometry the design canvas used. CSS sets stroke widths per place.
 
 function drawArt() {
   const art = {
@@ -47,13 +51,6 @@ function drawArt() {
     document.querySelectorAll(`path.${cls}`).forEach((path) => path.setAttribute("d", d));
   }
 }
-
-// ---------- scoring files ----------
-// both files sit next to index.html. loaded once, eagerly, so a mismatched or
-// missing model shows up the moment anyone needs scoring. a model handed
-// numbers in positions its weights don't expect has no safe way to score, so
-// the router sends every scoring path to the error screen instead
-// (Global Constraint 4). scoring code reads `const { model, reference } = await scoring`.
 
 async function fetchJson(url) {
   const res = await fetch(url);
@@ -76,31 +73,22 @@ scoring.catch((err) => {
   console.error("NeuroTrace: scoring files failed to load - nothing will be scored", err);
 });
 
-// ---------- session state (this page load only) ----------
+let choice = null;
+let current = null;
+let collecting = null;
 
-let choice = null;     // { ageChoice, bracket, hand } from About you - #draw needs it
-let current = null;    // the result being shown - #results needs it
-let collecting = null; // the collection session in progress - screens past #collect need it
-
-// ---------- router ----------
-// location.hash is "#<screen>[/<param>]", e.g. "#dashboard" or "#results/12".
-
-let previous = null; // the screen shown before this one
+let previous = null;
 
 function resolve(name, param) {
   const prefs = getPrefs();
-  // when signed out, only the home page exists as well as consent (the first step of logging in).
   if (!prefs.signedIn) return name === "consent" ? name : "home";
-  if (!name || name === "home" || !document.getElementById(`screen-${name}`)) return "dashboard";
+  if (!name || name === "home" || !$(`screen-${name}`)) return "dashboard";
   if (name === "error") return loadError ? name : "dashboard";
-  // collection mode is run by a facilitator, not the person on the personal
-  // consent flow, so it has its own gate.
   if (name.startsWith("collect")) return name === "collect" || collecting ? name : "collect";
   if (!prefs.consented && name !== "consent") return "consent";
   if (name === "draw" && !choice) return "about";
-  // #results/<id> loads from history
-  if (name === "exercise" && !EXERCISES[param]?.built) return "training"; // only built exercises open
-  if (name === "results" && !current && !param) return "dashboard"; // #results/<id> loads from history, moved it here since the homescreen isnt available for logged-in users
+  if (name === "exercise" && !EXERCISES[param]?.built) return "training";
+  if (name === "results" && !current && !param) return "dashboard";
   return name;
 }
 
@@ -108,7 +96,7 @@ async function route() {
   const hash = location.hash;
   const [name, param] = hash.slice(1).split("/");
   const target = resolve(name, param);
-  if (target !== name) return location.replace(`#${target}`); // fires hashchange -> route again
+  if (target !== name) return location.replace(`#${target}`);
 
   if (name === "draw" || name === "results" || name === "progress") {
     try {
@@ -116,19 +104,16 @@ async function route() {
     } catch {
       return location.replace("#error");
     }
-    if (location.hash !== hash) return; // the user moved on while the files loaded
+    if (location.hash !== hash) return;
   }
   show(name, param);
 }
 
-// per-screen setup, run each time the screen is shown.
 const onShow = {};
-const TABS = new Set(["dashboard", "testing", "training", "progress", "settings"]);
 const TAB_ORDER = ["dashboard", "testing", "training", "progress", "settings"];
+const TABS = new Set(TAB_ORDER);
+const TITLED = new Set([...TAB_ORDER, "results"]);
 
-const TITLED = new Set([...TAB_ORDER, "results"]); // screens whose large title collapses on scroll
-
-// tabs slide towards the tab you picked, everything else rises into place.
 function show(name, param) {
   const from = TAB_ORDER.indexOf(previous), to = TAB_ORDER.indexOf(name);
   const kind = from >= 0 && to >= 0 && from !== to ? (to > from ? "left" : "right") : "fade";
@@ -137,14 +122,12 @@ function show(name, param) {
 
 function showNow(name, param) {
   for (const s of document.querySelectorAll(".screen")) s.hidden = s.id !== `screen-${name}`;
-  const screen = document.getElementById(`screen-${name}`);
+  const screen = $(`screen-${name}`);
   document.title = `${screen.dataset.title} — NeuroTrace`;
   onShow[name]?.(param);
   scrollTo(0, 0);
   screen.querySelector("h1").focus({ preventScroll: true });
-  // the tab bar is for the five tab screens only. A check-in or a
-  // collection session is a focused task with its own Back/Cancel.
-  const tabbar = document.getElementById("tabbar");
+  const tabbar = $("tabbar");
   tabbar.hidden = !TABS.has(name);
   for (const a of tabbar.querySelectorAll("a")) {
     if (a.dataset.tab === name) a.setAttribute("aria-current", "page");
@@ -155,11 +138,9 @@ function showNow(name, param) {
   previous = name;
 }
 
-// ---------- consent ----------
-
 const consentBoxes = document.querySelectorAll('#screen-consent input[name="consent"]');
-const consentContinue = document.getElementById("consent-continue");
-const consentHelp = document.getElementById("consent-help");
+const consentContinue = $("consent-continue");
+const consentHelp = $("consent-help");
 
 function syncConsent() {
   const ready = [...consentBoxes].every((box) => box.checked);
@@ -172,31 +153,29 @@ onShow.consent = () => {
   consentBoxes.forEach((box) => (box.checked = consented));
   syncConsent();
 };
-document.getElementById("screen-consent").addEventListener("change", syncConsent);
+$("screen-consent").addEventListener("change", syncConsent);
 consentContinue.addEventListener("click", () => {
   setPrefs({ consented: true, onboarded: true, signedIn: true });
   location.hash = "#dashboard";
 });
 
-// ---------- about you ----------
-
-const aboutContinue = document.getElementById("about-continue");
+const aboutContinue = $("about-continue");
 const checkedValue = (name) => document.querySelector(`#screen-about input[name="${name}"]:checked`)?.value;
 const syncAbout = () => (aboutContinue.disabled = !(checkedValue("age") && checkedValue("hand")));
 
-document.getElementById("age-choices").innerHTML = copy.AGE_CHOICES
-  .map(({ label }) => `<label class="chip"><input type="radio" name="age" value="${label}"><span>${label}</span></label>`)
+const ageChips = (name) => copy.AGE_CHOICES
+  .map(({ label }) => `<label class="chip"><input type="radio" name="${name}" value="${label}"><span>${label}</span></label>`)
   .join("");
+$("age-choices").innerHTML = ageChips("age");
 
 onShow.about = () => {
   const { ageChoice, hand } = getPrefs();
   document.querySelectorAll('#screen-about input[name="age"]').forEach((r) => (r.checked = r.value === ageChoice));
   document.querySelectorAll('#screen-about input[name="hand"]').forEach((r) => (r.checked = r.value === hand));
   syncAbout();
-  // back to whichever tab started the check-in (Dashboard or Testing).
-  document.getElementById("about-back").href = TABS.has(previous) ? `#${previous}` : "#testing";
+  $("about-back").href = TABS.has(previous) ? `#${previous}` : "#testing";
 };
-document.getElementById("screen-about").addEventListener("change", syncAbout);
+$("screen-about").addEventListener("change", syncAbout);
 aboutContinue.addEventListener("click", () => {
   const ageChoice = checkedValue("age");
   const hand = checkedValue("hand");
@@ -205,52 +184,48 @@ aboutContinue.addEventListener("click", () => {
   location.hash = "#draw";
 });
 
-// ---------- draw ----------
-// one check-in is three spirals, averaged (handoff §6: averaging three
-// drawings cuts within-person noise). collection mode also records three, so
-// the device-matched reference will be built the same way.
 const CHECKIN_TRIALS = 3;
 
-const drawDone = document.getElementById("draw-done");
-const drawStatus = document.getElementById("draw-status");
-const drawSheet = document.getElementById("draw-pad").parentElement;
-let trials = []; // this check-in's finished spirals: { trace, strokeStarts, features }
-let trialsWanted = CHECKIN_TRIALS;
+const drawDone = $("draw-done");
+const drawStatus = $("draw-status");
+const drawSheet = $("draw-pad").parentElement;
+let trials = [];
 
-const pad = createPad(document.getElementById("draw-pad"), {
+const pad = createPad($("draw-pad"), {
   onInk({ cleared }) {
     drawDone.disabled = drawSheet.inert || !pad.hasInk();
-    showDrawStatus(cleared ? copy.RESIZE_CLEARED : null); // new ink makes an old message stale
+    showStatus(drawStatus, cleared ? copy.RESIZE_CLEARED : null);
     if (cleared) pad.showStartDot(true);
   },
 });
 
-// first sentence in bold, like Draw.dc.html's too-short card.
-function showDrawStatus(sentence) { showStatus(drawStatus, sentence); }
 function showStatus(box, sentence) {
   box.hidden = !sentence;
   if (!sentence) return;
   box.classList.remove("shake");
-  void box.offsetWidth; // replay the nudge for a second too-short in a row
+  void box.offsetWidth;
   box.classList.add("shake");
   const cut = sentence.indexOf(".") + 1;
   box.querySelector("strong").textContent = sentence.slice(0, cut);
   box.querySelector("strong + span").textContent = sentence.slice(cut);
 }
 
+function progressDots(progress, done, total) {
+  progress.innerHTML = Array.from({ length: total }, (_, i) =>
+    i <= done ? `<span class="on${i === done ? " now" : ""}"></span>` : "<span></span>").join("");
+  progress.setAttribute("aria-valuemax", total);
+  progress.setAttribute("aria-valuenow", done);
+  progress.setAttribute("aria-valuetext", `${done} of ${total}`);
+}
+
 function newTrial() {
-  const n = trials.length + 1;
-  document.getElementById("draw-count").textContent = `Spiral ${n} of ${trialsWanted}`;
-  const progress = document.getElementById("draw-progress");
-  progress.innerHTML = Array.from({ length: trialsWanted }, (_, i) => (i < n ? `<span class="on${i === n - 1 ? " now" : ""}"></span>` : "<span></span>")).join("");
-  progress.setAttribute("aria-valuemax", trialsWanted);
-  progress.setAttribute("aria-valuenow", trials.length);
-  progress.setAttribute("aria-valuetext", `${trials.length} of ${trialsWanted}`);
+  $("draw-count").textContent = `Spiral ${trials.length + 1} of ${CHECKIN_TRIALS}`;
+  progressDots($("draw-progress"), trials.length, CHECKIN_TRIALS);
   pad.reset();
   pad.showStartDot(true);
   drawSheet.inert = false;
   drawDone.disabled = true;
-  showDrawStatus(null);
+  showStatus(drawStatus, null);
 }
 
 onShow.draw = () => {
@@ -258,7 +233,7 @@ onShow.draw = () => {
   newTrial();
 };
 
-document.getElementById("draw-restart").addEventListener("click", newTrial); // this trial only
+$("draw-restart").addEventListener("click", newTrial);
 
 drawDone.addEventListener("click", async () => {
   const trace = pad.trace(choice.hand);
@@ -266,19 +241,17 @@ drawDone.addEventListener("click", async () => {
   try {
     features = featuresFromTrace(trace);
   } catch {
-    return showDrawStatus(copy.TOO_SHORT); // the ink stays so they can see what happened
+    return showStatus(drawStatus, copy.TOO_SHORT);
   }
   trials.push({ trace, strokeStarts: pad.strokeStarts(), features });
-  navigator.vibrate?.(12); // Android only; iOS ignores it
-  if (trials.length < trialsWanted) {
+  navigator.vibrate?.(12);
+  if (trials.length < CHECKIN_TRIALS) {
     toast(copy.SPIRAL_SAVED(trials.length));
-    drawSheet.classList.add("wipe"); // the finished spiral fades out, the next sheet fades in
+    drawSheet.classList.add("wipe");
     setTimeout(newTrial, reduced() ? 0 : 160);
     return;
   }
 
-  // scoring and saving are async - lock the pad so no new ink can reach
-  // onInk and re-enable Done for a second trial or a second record.
   drawDone.disabled = true;
   drawSheet.inert = true;
   const finish = measuring();
@@ -301,7 +274,7 @@ drawDone.addEventListener("click", async () => {
   try {
     await saveAssessment(record);
   } catch (err) {
-    console.warn("NeuroTrace: couldn't save this check-in to history", err); // still show the result
+    console.warn("NeuroTrace: couldn't save this check-in to history", err);
   }
   const hide = await finish();
   current = record;
@@ -311,10 +284,9 @@ drawDone.addEventListener("click", async () => {
 
 drawSheet.addEventListener("animationend", () => drawSheet.classList.remove("wipe"));
 
-// a soft glow under the pen tip while it touches the sheet.
 const penTip = el("span", "pen-tip");
 drawSheet.append(penTip);
-const canvasEl = document.getElementById("draw-pad");
+const canvasEl = $("draw-pad");
 const movePenTip = (e) => {
   const r = canvasEl.getBoundingClientRect();
   penTip.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top}px)`;
@@ -325,36 +297,16 @@ for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
   canvasEl.addEventListener(type, () => penTip.classList.remove("on"));
 }
 
-// ---------- results ----------
-// renders a stored record, never a live computation, so a check-in reopened from
-// history reads exactly as it did the day it was made (Ruling 7). nothing
-// here may put result.score or result.scorePct on screen (Constraint 2).
-
-const $ = (id) => document.getElementById(id);
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text != null) node.textContent = text;
-  return node;
-}
-const card = (title, ...children) => {
-  const c = el("section", "card result-card");
-  c.append(el("h2", null, title), ...children);
-  return c;
-};
-const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
+// never show result.score
 const whenFmt = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 function measureRow(key, frac) {
   const row = el("div", "measure");
   const track = el("div", "track");
-  track.setAttribute("aria-hidden", "true"); // the sentence is the content, the dot is a second reading
+  track.setAttribute("aria-hidden", "true");
   const dot = el("span", "track-dot");
   dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
   track.append(dot);
-  // copy.measureSentence stays the one source of the wording, the number is
-  // split out so it can count up as the dot travels.
   const [, lead, n, tail] = copy.measureSentence(key, frac).match(/^(.*?)(\d+)(%.*)$/);
   const sentence = el("span", "sub");
   const num = el("span", "num", n);
@@ -376,7 +328,7 @@ function levels(tier) {
   return wrap;
 }
 
-let drawing = null; // { canvas, prepared } for the replay button and theme redraws
+let drawing = null;
 
 function renderResults(rec) {
   const { result } = rec;
@@ -411,9 +363,6 @@ function renderResults(rec) {
     drawingCard(rec),
     every,
   ];
-  // two columns on iPad: the reading on the left, the measures on the right.
-  // on a phone both wrappers are display: contents and `order` keeps this
-  // exact sequence.
   parts.forEach((node, i) => (node.style.order = i));
   const main = el("div", "results-main"), side = el("div", "results-side");
   main.append(...parts.filter((n) => n !== stoodOut && n !== every));
@@ -422,8 +371,6 @@ function renderResults(rec) {
   reveal(parts);
   reveal($("results-body").querySelectorAll(".measure"), (row) => countUp(row.querySelector(".num"), Number(row.dataset.n)));
 }
-
-// ---------- your drawing: raw vs filtered, replay, speed ----------
 
 function drawingCard(rec) {
   const drawn = (rec.trials ?? []).filter((t) => t.samples);
@@ -442,7 +389,7 @@ function drawingCard(rec) {
   }
   const replay = el("button", "btn btn-secondary btn-compact");
   replay.type = "button";
-  replay.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>Replay drawing';
+  replay.innerHTML = PLAY_ICON + "Replay drawing";
   const speed = el("canvas", "speed");
   speed.setAttribute("role", "img");
   speed.setAttribute("aria-label", "Drawing speed over time");
@@ -456,10 +403,8 @@ function drawingCard(rec) {
   }
   drawing = { canvas, speed, prepared };
   replay.addEventListener("click", () => replayDrawing(drawing));
-  // painted once the card is in the document and has a size.
   requestAnimationFrame(() => paintDrawing(drawing));
 
-  // with more than one spiral, a segmented pad picks which one gets drawn.
   let picker = "";
   if (drawn.length > 1) {
     picker = el("div", "segmented");
@@ -485,33 +430,33 @@ function drawingCard(rec) {
     el("h3", null, "Speed along the line"), el("p", "sub", copy.SPEED_CAPTION), speed);
 }
 
-// both lines go through normalize() - the centre-and-scale preprocessTrace
-// applies - so they share one space and the only visible difference is the
-// trimming, resampling and 15 Hz low-pass.
+function bounds(...lines) {
+  const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  for (const [x, y] of lines) {
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] < box.minX) box.minX = x[i];
+      if (x[i] > box.maxX) box.maxX = x[i];
+      if (y[i] < box.minY) box.minY = y[i];
+      if (y[i] > box.maxY) box.maxY = y[i];
+    }
+  }
+  return box;
+}
+
 function prepareDrawing({ samples, strokeStarts }) {
   const t = Float64Array.from(samples, (s) => s.t);
   const x = Float64Array.from(samples, (s) => s.x);
   const y = Float64Array.from(samples, (s) => s.y);
   const raw = normalize(x, y);
   const filtered = preprocessTrace(t, x, y).slice(1);
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const [px, py] of [raw, filtered]) {
-    for (let i = 0; i < px.length; i++) {
-      if (px[i] < minX) minX = px[i];
-      if (px[i] > maxX) maxX = px[i];
-      if (py[i] < minY) minY = py[i];
-      if (py[i] > maxY) maxY = py[i];
-    }
-  }
   const starts = new Set(strokeStarts ?? [0]);
-  // speed between neighbouring samples of the same stroke - a pen lift isn't motion.
   const speeds = [];
   for (let i = 1; i < samples.length; i++) {
     const dt = samples[i].t - samples[i - 1].t;
     if (starts.has(i) || dt <= 0) continue;
     speeds.push(Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y) / dt);
   }
-  return { t, raw, filtered, starts, speeds, box: { minX, maxX, minY, maxY } };
+  return { t, raw, filtered, starts, speeds, box: bounds(raw, filtered) };
 }
 
 function fitCanvas(canvas) {
@@ -538,7 +483,6 @@ function strokeLine(ctx, [px, py], map, n, starts, style, width) {
   ctx.restore();
 }
 
-// upTo: seconds of the raw line to draw. the smoothed line shows up once it's all drawn.
 function paintDrawing(d, upTo = Infinity) {
   if (!d?.canvas.isConnected) return;
   const { ctx, w, h } = fitCanvas(d.canvas);
@@ -560,7 +504,7 @@ function paintSpeed({ speed, prepared: { speeds } }) {
   const { ctx, w, h } = fitCanvas(speed);
   if (speeds.length < 2) return;
   let top = 1;
-  for (const v of speeds) if (v > top) top = v; // no Math.max(...arr) on long traces (Constraint 6)
+  for (const v of speeds) if (v > top) top = v; // spread overflows
   const X = (i) => (i / (speeds.length - 1)) * w, Y = (v) => h - 4 - (v / top) * (h - 8);
   ctx.beginPath();
   ctx.moveTo(0, h);
@@ -577,7 +521,6 @@ function paintSpeed({ speed, prepared: { speeds } }) {
   ctx.stroke();
 }
 
-// always animates bc the person asked for it with a button (Constraint 8).
 function replayDrawing(d) {
   cancelAnimationFrame(d.frame);
   const end = d.prepared.t[d.prepared.t.length - 1];
@@ -602,8 +545,6 @@ onShow.results = async (id) => {
   $("results-title").focus({ preventScroll: true });
 };
 
-// ---------- dashboard: history ----------
-
 function historyWhen(ts) {
   const d = new Date(ts), today = new Date();
   const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
@@ -613,7 +554,7 @@ function historyWhen(ts) {
   return `${d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })}, ${time}`;
 }
 
-const historyEmpty = document.querySelector("#history .empty"); // index.html's empty state
+const historyEmpty = document.querySelector("#history .empty");
 
 onShow.dashboard = async () => {
   const records = await listAssessments().catch((err) => {
@@ -628,25 +569,18 @@ onShow.dashboard = async () => {
     const text = el("span", "history-text");
     text.append(el("span", "history-when", historyWhen(rec.ts)), el("span", "sub", copy.TIERS[rec.result.tier].label));
     row.append(text);
-    row.insertAdjacentHTML("beforeend", '<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
+    row.insertAdjacentHTML("beforeend", CHEVRON);
     list.append(row);
   }
   $("history").replaceChildren(list);
 };
-
-// ---------- progress: first vs latest check-in ----------
-
-// both of these are scored from the stored features with today's reference
-// so an update in the reference doesn't show up as a change in the person. only check-ins
-// with the latest one's hand and input count (another hand or a finger instead
-// of the pencil or stylus is a different movement)
 
 const sameSetup = (a, b) => a.hand === b.hand && a.inputType === b.inputType;
 
 function compareRow(key, first, latest) {
   const row = el("div", "measure");
   const track = el("div", "track");
-  track.setAttribute("aria-hidden", "true"); // the sentences are the content
+  track.setAttribute("aria-hidden", "true");
   for (const [frac, cls] of [[first, "track-dot then"], [latest, "track-dot"]]) {
     const dot = el("span", cls);
     dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
@@ -658,13 +592,6 @@ function compareRow(key, first, latest) {
     track);
   return row;
 }
-
-
-
-// this creates a copy of the drawing for replay and they are saved for check-ins
-// (the full drawing is only kept for the newest three drawings, see RAW_KEEP in store.js).
-// keeps an existing sample once at least 1/60 s has passed since the last kept one.
-// stroke starts and ends are always kept.
 
 const REPLAY_HZ = 60;
 function replayPath(samples, strokeStarts = [0]) {
@@ -682,18 +609,12 @@ function replayPath(samples, strokeStarts = [0]) {
   return { t: pick("t"), x: pick("x"), y: pick("y"), starts: keep.flatMap((i, j) => (starts.has(i) ? [j] : [])) };
 }
 
-// drawing to replay for a check-in. uses its saved replay copy (older
-// check-ins don't have one, so one is built from the full drawing instead).
-// returns null if the full drawing was already deleted.
-
 function checkinPath(rec) {
   const trial = (rec.trials ?? []).find((t) => t.path || t.samples);
   if (!trial) return null;
   return trial.path ?? replayPath(trial.samples, trial.strokeStarts);
 }
 
-// a result card with the date, tier and saved drawing. keeps the canvas
-// and path together so the drawing can be replayed.
 function snapshot(label, rec, result) {
   const box = el("section", "card snapshot");
   box.append(el("span", "sub", label), el("h2", "card-title", whenFmt.format(rec.ts)), el("p", null, copy.TIERS[result.tier].label));
@@ -709,22 +630,13 @@ function snapshot(label, rec, result) {
   return { box, live: { canvas, path } };
 }
 
-// fits the saved drawing to the canvas and draws up to `upTo` seconds.
-// pen lifts stay separate; a dot follows the tip while it's still drawing.
 function paintPath({ canvas, path }, upTo = Infinity) {
   if (!canvas.isConnected) return;
   const { ctx, w, h } = fitCanvas(canvas);
-  if (!w) return; // screen hidden mid-replay
+  if (!w) return;
   const { t, x, y, starts } = path;
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (let i = 0; i < x.length; i++) {
-    if (x[i] < minX) minX = x[i];
-    if (x[i] > maxX) maxX = x[i];
-    if (y[i] < minY) minY = y[i];
-    if (y[i] > maxY) maxY = y[i];
-  }
+  const { minX, maxX, minY, maxY } = bounds([x, y]);
   const pad = 10;
-  // keeps the proportions. uses 1 for a flat axis so division by 0 doesn't happen
   const s = Math.min((w - 2 * pad) / (maxX - minX || 1), (h - 2 * pad) / (maxY - minY || 1));
   const ox = w / 2 - s * (minX + maxX) / 2, oy = h / 2 - s * (minY + maxY) / 2;
   const lifts = new Set(starts);
@@ -736,7 +648,6 @@ function paintPath({ canvas, path }, upTo = Infinity) {
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
     const X = ox + s * x[i], Y = oy + s * y[i];
-    // starts a new stroke on each pen lift instead of joining across the gap
     if (i === 0 || lifts.has(i)) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
   }
   ctx.stroke();
@@ -747,8 +658,6 @@ function paintPath({ canvas, path }, upTo = Infinity) {
   }
 }
 
-// every drawing starts together and runs at the speed it was drawn,
-// so a drawing that took longer finishes later.
 let progressFrame = 0;
 function replayAll(lives) {
   cancelAnimationFrame(progressFrame);
@@ -764,9 +673,8 @@ function replayAll(lives) {
 
 onShow.progress = async () => {
   const body = $("progress-body");
-  const records = await listAssessments().catch(() => []); // newest first
+  const records = await listAssessments().catch(() => []);
   const latest = records[0];
-  // records are newest first, so the last matching check-in is the earliest.
   const first = latest && records.filter((r) => sameSetup(r, latest)).at(-1);
   if (!first || first === latest) {
     const empty = el("div", "card empty");
@@ -777,7 +685,6 @@ onShow.progress = async () => {
     return body.replaceChildren(empty);
   }
   const { model, reference } = await scoring;
-  // one ruler for both: today's reference, the latest check-in's age group.
   const place = (rec) => scoreSession([rec.features ?? rec.result.features], model, reference, latest.bracketChoice);
   const a = place(first), b = place(latest);
 
@@ -787,9 +694,8 @@ onShow.progress = async () => {
   const lives = [one.live, two.live].filter(Boolean);
   const replay = el("button", "btn btn-secondary btn-compact replay-both");
   replay.type = "button";
-  replay.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>' +
-    (lives.length > 1 ? "Replay both" : "Replay drawing");
-  replay.addEventListener("click", () => replayAll(lives)); // always animates: the person asked for it
+  replay.innerHTML = PLAY_ICON + (lives.length > 1 ? "Replay both" : "Replay drawing");
+  replay.addEventListener("click", () => replayAll(lives));
 
   const key = el("div", "dot-legend");
   key.setAttribute("aria-hidden", "true");
@@ -808,12 +714,8 @@ onShow.progress = async () => {
     measures.append(group);
   }
   body.replaceChildren(el("p", "sub progress-meta", copy.progressSetup(latest.hand, latest.inputType)), pair, ...(lives.length ? [replay] : []), measures);
-  // plays once on arrival. under reduced motion the finished drawings show instead.
   requestAnimationFrame(() => (reduced() ? lives.forEach((l) => paintPath(l)) : replayAll(lives)));
 };
-
-// ---------- training: the tab ----------
-// each exercise card shows its real level. exercises not built yet say so.
 
 onShow.training = () => {
   for (const btn of document.querySelectorAll("#screen-training [data-exercise]")) {
@@ -835,21 +737,13 @@ document.querySelectorAll("#screen-training [data-exercise]").forEach((btn) => b
   else toast(copy.NOT_BUILT);
 }));
 
-// ---------- training: the exercise screen ----------
-// one exercise at a time. each try is measured (train.js), shown straight
-// away, saved, and moves the level by the agreed rule: 3 hits up, 3 misses in
-// a row down, "too hard today" down any time. EX_UI (below) says how each
-// exercise draws, starts and is scored.
-
 const exSheet = $("ex-pad").parentElement;
 const tapCanvas = $("ex-tap");
 const tapSheet = tapCanvas.parentElement;
-let ex = null; // the exercise on screen: { id, state, levels } plus the try in progress
+let ex = null;
 const exTarget = () => ex.levels[ex.state.level];
 const exUI = () => EX_UI[ex.id];
 
-// the timers, animation frame and metronome clicks of the try in progress,
-// kept so they all stop together - on a new try, Done or leaving the screen.
 let exTimers = [], exFrame = 0, exClicks = [];
 function exStop() {
   exTimers.forEach(clearTimeout);
@@ -865,7 +759,6 @@ addEventListener("hashchange", () => { if (!location.hash.startsWith("#exercise"
 
 const exPhase = (text) => ($("ex-phase").textContent = text ?? "");
 
-// which buttons show: "draw" (Start over + Done), "start" (Start), "next" (Next try), or none.
 function exActions(which) {
   $("ex-draw-actions").hidden = which !== "draw";
   $("ex-start-actions").hidden = which !== "start";
@@ -888,10 +781,6 @@ function dot(ctx, x, y, r) {
   ctx.fill();
 }
 
-// ---- big writing ----
-
-// the writing area: the baseline at 80% of its height, the target line the
-// level's share of the height above it.
 function writingGeometry(w, h, share) {
   const baselineY = h * 0.8;
   return { baselineY, targetPx: h * share, targetY: baselineY - h * share, left: w * 0.06, right: w * 0.94 };
@@ -914,15 +803,11 @@ function bigWritingGuide(ctx, w, h) {
   ctx.stroke();
   ctx.fillStyle = cssVar("--ink2");
   ctx.font = `600 15px ${cssVar("--font-body")}`;
-  // at the right end: writing starts on the left, so it covers the label last.
   ctx.textAlign = "right";
   ctx.fillText(copy.TARGET_LABEL, g.right, g.targetY - 10);
   ctx.restore();
 }
 
-// a dot just above each loop's top, over the ink: filled if the loop reached
-// the line, a ring if it fell short. the accuracy sentence says the same in
-// words. drawn as part of the pad's repaint, so a theme change keeps them.
 function loopMarks(ctx) {
   if (!ex.marks || !exPad.hasInk()) return;
   ctx.save();
@@ -948,13 +833,9 @@ function scoreBigWritingTry(samples, starts, w, h, recent) {
   const geo = writingGeometry(w, h, exTarget());
   return {
     out: scoreBigWriting(samples, starts, geo, recent),
-    // the writing area this try was scored in, so a saved try can be
-    // re-scored when the thresholds in train.js are tuned.
     geometry: { width: w, height: h, baselineY: geo.baselineY, targetPx: geo.targetPx },
   };
 }
-
-// ---- steady tracing: watch, imagine, then trace ----
 
 const DEMO_SECS = 4, IMAGINE_SECS = 4;
 let spiralCache = null;
@@ -963,8 +844,6 @@ function spiralFor(w, h) {
   return spiralCache;
 }
 
-// the whole guide while watching and imagining and after Done, so the line
-// can be compared with it; the level's visibility while tracing.
 function tracingGuide(ctx, w, h) {
   const path = spiralFor(w, h);
   const visibility = ex.phase === "trace" ? exTarget() : 1;
@@ -977,10 +856,9 @@ function tracingGuide(ctx, w, h) {
     strokePath(ctx, path);
     ctx.restore();
   }
-  dot(ctx, path.x[0], path.y[0], 7.5); // where to start, at every level
+  dot(ctx, path.x[0], path.y[0], 7.5);
 }
 
-// while watching: the dot and the part of the spiral it has drawn.
 function tracingOverlay(ctx, w, h) {
   if (ex.phase !== "watch" || ex.demoAt == null) return;
   const path = spiralFor(w, h);
@@ -994,7 +872,7 @@ function tracingOverlay(ctx, w, h) {
   ctx.restore();
   dot(ctx, ...pointAlong(path, along), 9);
 }
-// watch, imagine, then trace. drawing is locked until the countdown ends
+
 function beginTracing() {
   ex.phase = "watch";
   exSheet.inert = true;
@@ -1008,7 +886,7 @@ function beginTracing() {
     const tick = () => {
       if (left === 0) {
         ex.phase = "trace";
-        exPad.redraw(); // switches the guide to the level's visibility
+        exPad.redraw();
         exSheet.inert = false;
         return exPhase(copy.TRACE_NOW);
       }
@@ -1018,7 +896,6 @@ function beginTracing() {
     };
     tick();
   };
-  // reduced motion: no moving dot, just a look at the whole spiral.
   if (reduced()) {
     exPhase(copy.LOOK);
     exPad.redraw();
@@ -1035,7 +912,6 @@ function beginTracing() {
   exFrame = requestAnimationFrame(step);
 }
 
-// Start over while tracing clears the ink and keeps going - no second demo.
 function clearTracing() {
   if (ex.phase !== "trace") return exNewTry();
   exPad.reset();
@@ -1052,8 +928,6 @@ function scoreTracingTry(samples, starts, w, h, recent) {
   };
 }
 
-// ---- rhythm: follow a dot that moves to a metronome ----
-
 let waveCache = null;
 function waveFor(w, h) {
   if (waveCache?.w !== w || waveCache?.h !== h) waveCache = { ...rhythmPath(w, h), w, h };
@@ -1069,7 +943,6 @@ function rhythmGuide(ctx, w, h) {
   ctx.restore();
 }
 
-// the dot to follow, ringed in the surface colour so it stands out on the ink.
 function rhythmOverlay(ctx) {
   if (ex.phase === "done" || !waveCache) return;
   const [x, y] = pointAlong(waveCache, (ex.dotBeat ?? 0) * waveCache.beatLength);
@@ -1093,11 +966,7 @@ function beginRhythm() {
   exPad.redraw();
 }
 
-// the metronome: one short click per beat, scheduled ahead on the audio
-// clock so it stays steady. no sound (or no audio support) still leaves the dot.
 let audio = null;
-// each beep quickly gets louder then quieter. the higher beep means
-// the countdown is over and time to follow the dot.
 function click(at, accent) {
   const o = audio.createOscillator(), g = audio.createGain();
   o.frequency.value = accent ? 1320 : 880;
@@ -1109,14 +978,12 @@ function click(at, accent) {
   o.stop(at + 0.08);
   exClicks.push(o);
 }
-// counts down then moves the dot at the current level's speed
-// beeps help the user keep pace with the dot
 function startRhythm() {
   const beatSec = 60 / exTarget();
-  const lead = 0.15; // seconds before the first click, so none is scheduled in the past
+  const lead = 0.15;
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
-    audio.resume(); // iOS only allows sound after a tap - this is that tap
+    audio.resume();
     const t0 = audio.currentTime + lead;
     for (let k = 0; k <= COUNT_IN + RHYTHM_BEATS; k++) click(t0 + k * beatSec, k === COUNT_IN);
   } catch (err) {
@@ -1124,7 +991,7 @@ function startRhythm() {
   }
   ex.dotStart = performance.now() + (lead + COUNT_IN * beatSec) * 1000;
   ex.phase = "count";
-  exSheet.inert = false; // the pen can wait on the dot through the count-in
+  exSheet.inert = false;
   exActions("draw");
   $("ex-done").disabled = !exPad.hasInk();
   const step = (now) => {
@@ -1148,7 +1015,6 @@ function startRhythm() {
 function scoreRhythmTry(samples, starts, w, h, recent) {
   const beatSec = 60 / exTarget();
   const first = exPad.startedAt();
-  // when the pen touched down, measured from the dot setting off.
   const penOffset = ex.dotStart != null && first != null ? (first - ex.dotStart) / 1000 : 0;
   return {
     out: scoreRhythm(samples, starts, waveFor(w, h), { beatSec, penOffset }, recent),
@@ -1156,12 +1022,9 @@ function scoreRhythmTry(samples, starts, w, h, recent) {
   };
 }
 
-// ---- hand skills: shrinking targets ----
-
-const GAP_MS = 400; // between one circle disappearing and the next appearing
-// a tap this far outside a circle's edge still catches it.
+const GAP_MS = 400;
 const TAP_SLACK = 6;
-let round = null; // { results, extra, target, penSeen, inputType } for the round in progress
+let round = null;
 let tapCtx = null, tapW = 0, tapH = 0;
 
 function sizeTapCanvas() {
@@ -1194,7 +1057,7 @@ function beginTargets() {
 
 function startTargets() {
   ex.phase = "run";
-  exActions(null); // nothing to press while the circles come
+  exActions(null);
   round = { results: [], extra: 0, target: null, penSeen: false, inputType: null };
   sizeTapCanvas();
   exAfter(600, nextTarget);
@@ -1202,7 +1065,6 @@ function startTargets() {
 
 function nextTarget() {
   if (round.results.length >= TARGETS) return endRound();
-  // leave room for the full circle, plus 8 pixels at the edges for error.
   const size = exTarget(), m = size / 2 + 8;
   round.target = { x: m + Math.random() * (tapW - 2 * m), y: m + Math.random() * (tapH - 2 * m), size, at: performance.now() };
   exPhase(copy.circleOf(round.results.length + 1, TARGETS));
@@ -1210,7 +1072,7 @@ function nextTarget() {
     const t = round?.target;
     if (!t) return;
     if (targetRadius(t.size, (now - t.at) / 1000) <= 0) {
-      round.results.push({ caught: false, ms: null }); // shrank away
+      round.results.push({ caught: false, ms: null });
       round.target = null;
       paintTarget(now);
       return exAfter(GAP_MS, nextTarget);
@@ -1224,7 +1086,7 @@ function nextTarget() {
 tapCanvas.addEventListener("pointerdown", (e) => {
   if (ex?.phase !== "run" || !round) return;
   if (e.pointerType === "pen") round.penSeen = true;
-  if (e.pointerType === "touch" && round.penSeen) return; // after the first pen contact, ignore touch so a palm doesn't count
+  if (e.pointerType === "touch" && round.penSeen) return;
   round.inputType ??= e.pointerType === "pen" ? "pencil" : e.pointerType;
   const t = round.target;
   const rect = tapCanvas.getBoundingClientRect();
@@ -1237,7 +1099,7 @@ tapCanvas.addEventListener("pointerdown", (e) => {
     paintTarget();
     navigator.vibrate?.(10);
     exAfter(GAP_MS, nextTarget);
-  } else round.extra++; // taps during the gaps count too
+  } else round.extra++;
 });
 
 function endRound() {
@@ -1250,10 +1112,6 @@ function endRound() {
   });
 }
 
-// ---- every exercise ----
-
-// how each exercise is laid out, started, scored and reported. pad: "wide",
-// "square" or "tap" (the tapping area instead of the drawing pad).
 const EX_UI = {
   "big-writing": {
     pad: "wide", guide: bigWritingGuide, overlay: loopMarks, begin: beginDrawing, score: scoreBigWritingTry,
@@ -1290,8 +1148,6 @@ const EX_UI = {
     rows: ({ measures: m }) => [
       ["caught", copy.caughtSentence(m.caught, m.targets, Math.ceil(CATCH_SHARE * m.targets))],
       ["reaction", copy.reactionSentence(m.reactionMs)],
-      // how many missed taps are allowed for the number of circles caught.
-      // the tiny addition (1e-9) prevents floating-point rounding errors from lowering that limit.
       ["extra", copy.extraTapsSentence(m.extraTaps, Math.floor(m.caught / TAP_PRECISION - m.caught + 1e-9))],
     ],
   },
@@ -1306,7 +1162,6 @@ const exPad = createPad($("ex-pad"), {
   overlay: (ctx, w, h) => ex && EX_UI[ex.id].overlay?.(ctx, w, h),
 });
 
-// the level, hit dots and misses-in-a-row above the exercise.
 function renderExProgress() {
   const { state, levels } = ex;
   $("ex-level").textContent = copy.levelOf(state.level + 1, levels.length);
@@ -1314,7 +1169,7 @@ function renderExProgress() {
   if (state.level === levels.length - 1) parts.push(el("span", "sub", copy.TOP_LEVEL));
   else {
     const dots = el("span", "hit-dots");
-    dots.setAttribute("aria-hidden", "true"); // the sentence next to it says the same
+    dots.setAttribute("aria-hidden", "true");
     for (let i = 0; i < HITS_TO_LEVEL_UP; i++) dots.append(el("span", i < state.hits ? "on" : null));
     parts.push(dots, el("span", "sub", copy.hitsSoFar(state.hits, HITS_TO_LEVEL_UP)));
   }
@@ -1331,7 +1186,7 @@ function exNewTry() {
   exSheet.hidden = ui.pad === "tap";
   tapSheet.hidden = ui.pad !== "tap";
   exSheet.classList.toggle("pad-wide", ui.pad === "wide");
-  exPad.reset(); // also redraws the guide at the current level
+  exPad.reset();
   showStatus($("ex-status"), null);
   $("ex-result").replaceChildren();
   ui.begin();
@@ -1340,7 +1195,6 @@ function exNewTry() {
 function renderExResult(out, change) {
   const id = ex.id;
   const verdict = out.hit ? copy.VERDICT_HIT : out.reachedTarget ? copy.VERDICT_NOT_COUNTED[id] : copy.VERDICT_MISS;
-  // reached the target but slower or shakier: say why it didn't count.
   const notes = out.reachedTarget && !out.hit
     ? [out.slower && copy.SLOWER_NOTES[id], out.shakier && copy.SHAKIER_NOTES[id]].filter(Boolean)
     : [];
@@ -1358,7 +1212,6 @@ function renderExResult(out, change) {
   $("ex-result").replaceChildren(box);
 }
 
-// a counted try (update and save progress, and show the result).
 function finishTry(out, extra) {
   const before = ex.state;
   const { state, change } = applyTry(before, out, ex.levels.length);
@@ -1381,7 +1234,6 @@ function finishTry(out, extra) {
   renderExResult(out, change);
   renderExProgress();
   exActions("next");
-  // the result is below the exercise, so scroll it into view automatically after the attempt.
   $("ex-result").scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: "nearest" });
 }
 
@@ -1396,18 +1248,13 @@ onShow.exercise = (id) => {
   exNewTry();
 };
 
-$("ex-clear").addEventListener("click", () => {
-  const clear = exUI().clear ?? exNewTry;
-  clear();
-});
-
-
+$("ex-clear").addEventListener("click", () => (exUI().clear ?? exNewTry)());
 $("ex-next").addEventListener("click", exNewTry);
 $("ex-start").addEventListener("click", () => exUI().start());
 
 $("ex-too-hard").addEventListener("click", () => {
   const state = tooHard(ex.state);
-  if (state === ex.state) return; // already Level 1
+  if (state === ex.state) return;
   ex.state = state;
   setTrainingState(ex.id, state);
   renderExProgress();
@@ -1416,64 +1263,43 @@ $("ex-too-hard").addEventListener("click", () => {
 });
 
 $("ex-done").addEventListener("click", async () => {
-  // lock the pad first so a second tap or more ink can't score this try twice.
   $("ex-done").disabled = true;
   exSheet.inert = true;
   const trace = exPad.trace();
   const starts = exPad.strokeStarts();
   const { width, height } = $("ex-pad").getBoundingClientRect();
   const tries = await listTrainingTries(ex.id).catch(() => []);
-  // compare with recent tries made the same way: a mouse, a finger and a pen
-  // move at very different speeds.
   const recent = tries.filter((t) => t.counted && t.inputType === trace.inputType).map((t) => t.measures);
   const { out, geometry } = exUI().score(trace.samples, starts, width, height, recent);
   if (!out.counted) {
-    exSheet.inert = false; // the ink stays so they can see why, and add to it
+    exSheet.inert = false;
     $("ex-done").disabled = !exPad.hasInk();
     return showStatus($("ex-status"), exUI().tooShort);
   }
-  exStop(); // the rhythm dot and clicks, if still going
+  exStop();
   ex.phase = "done";
   ex.marks = out.marks ?? null;
-  exPad.redraw(); // big writing's loop dots, the whole tracing guide
+  exPad.redraw();
   exPhase(null);
   finishTry(out, { inputType: trace.inputType, path: replayPath(trace.samples, starts), geometry });
 });
 
-// Settings > For researchers: every practice try on this device as one JSON
-// file, so the thresholds in train.js can be tuned on real writing.
 $("export-practice").addEventListener("click", async () => {
   const tries = await listTrainingTries().catch(() => []);
   if (!tries.length) return toast(copy.NO_PRACTICE);
   const body = { formatVersion: 1, exportedAt: new Date().toISOString(), tries };
-  // replay paths are typed arrays, which JSON would turn into objects.
   const json = JSON.stringify(body, (k, v) => {
     if (!ArrayBuffer.isView(v)) return v;
     return Array.from(v, (n) => Math.round(n * 100) / 100);
   });
   const file = new File([json], `neurotrace-practice-${body.exportedAt.slice(0, 10)}.json`, { type: "application/json" });
-  try {
-    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: file.name });
-    else download(file);
-  } catch (err) {
-    if (err.name === "AbortError") return; // they closed the share sheet
-    download(file);
-  }
-  toast(copy.EXPORTED);
+  if (await shareFile(file)) toast(copy.EXPORTED);
 });
 
-// ---------- placeholders ----------
-// buttons on screens that aren't built yet (the training layout) say so
-// instead of doing nothing.
 document.querySelectorAll("[data-soon]").forEach((btn) => btn.addEventListener("click", () => toast(copy.NOT_BUILT)));
 
-// ---------- collection mode (handoff B2, docs/COLLECTED_FORMAT.md) ----------
-// a facilitator records three spirals per participant for the device-matched
-// reference. nothing is scored or shown, each session is saved on the iPad
-// and only leaves it through Export.
-
 const COLLECT_TRIALS = 3;
-let pendingId = null; // the ID offered to the next new participant
+let pendingId = null;
 
 function startSession(subjectId, session) {
   collecting = { subjectId, session, trials: [] };
@@ -1502,7 +1328,7 @@ onShow.collect = async () => {
       text.append(el("span", "history-when mono", subjectId),
         el("span", "sub", `${n} session${n === 1 ? "" : "s"}, last on ${dateFmt.format(new Date(lastAt))}`));
       row.append(text);
-      row.insertAdjacentHTML("beforeend", '<svg class="icon chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');
+      row.insertAdjacentHTML("beforeend", CHEVRON);
       row.addEventListener("click", () => startSession(subjectId, n + 1));
       return row;
     }));
@@ -1519,8 +1345,6 @@ $("collect-export-all").addEventListener("click", async () => {
   const day = new Date().toISOString().slice(0, 10);
   if (await exportSessions(waiting, `neurotrace-export-${day}.json`)) onShow.collect();
 });
-
-// ---- details: consent, age, hand, diagnosis (in that order) ----
 
 const detailsHelp = $("details-help");
 const detailsBegin = $("details-begin");
@@ -1551,7 +1375,7 @@ function syncDetails() {
 
 onShow["collect-details"] = () => {
   $("details-session").innerHTML = `<span class="mono">${collecting.subjectId}</span>, session ${collecting.session}`;
-  if (collecting.details) return syncDetails(); // coming back from the spirals keeps the answers
+  if (collecting.details) return syncDetails();
   $("c-consent").checked = false;
   $("c-age").value = "";
   $("c-med").value = "";
@@ -1566,8 +1390,6 @@ detailsBegin.addEventListener("click", () => {
   location.hash = "#collect-draw";
 });
 
-// ---- three spirals ----
-
 const collectNext = $("collect-next");
 const collectStatus = $("collect-status");
 const collectSheet = $("collect-pad").parentElement;
@@ -1580,14 +1402,11 @@ const collectPad = createPad($("collect-pad"), {
 });
 
 function newCollectTrial() {
-  const done = collecting.trials.length, n = done + 1;
-  $("collect-count").textContent = `Spiral ${n} of ${COLLECT_TRIALS}`;
+  const done = collecting.trials.length;
+  $("collect-count").textContent = `Spiral ${done + 1} of ${COLLECT_TRIALS}`;
   $("collect-session").innerHTML = `<span class="mono">${collecting.subjectId}</span>, session ${collecting.session}`;
-  const progress = $("collect-progress");
-  progress.innerHTML = Array.from({ length: COLLECT_TRIALS }, (_, i) => (i < n ? `<span class="on${i === n - 1 ? " now" : ""}"></span>` : "<span></span>")).join("");
-  progress.setAttribute("aria-valuenow", done);
-  progress.setAttribute("aria-valuetext", `${done} of ${COLLECT_TRIALS}`);
-  collectNext.textContent = n === COLLECT_TRIALS ? "Finish" : "Next spiral";
+  progressDots($("collect-progress"), done, COLLECT_TRIALS);
+  collectNext.textContent = done + 1 === COLLECT_TRIALS ? "Finish" : "Next spiral";
   collectPad.reset();
   collectPad.showStartDot(true);
   collectSheet.inert = false;
@@ -1610,7 +1429,7 @@ $("collect-back").addEventListener("click", (e) => {
 collectNext.addEventListener("click", async () => {
   const trace = collectPad.trace(collecting.details.hand);
   try {
-    featuresFromTrace(trace); // validity only - nothing is scored or kept from this
+    featuresFromTrace(trace);
   } catch {
     return showStatus(collectStatus, copy.TOO_SHORT);
   }
@@ -1646,15 +1465,11 @@ collectNext.addEventListener("click", async () => {
   try {
     record.id = await saveCollected(record);
   } catch (err) {
-    // losing a participant's spirals is the one failure that matters here,
-    // so hold the session in memory and it can still be exported by hand.
     console.error("NeuroTrace: couldn't save the session on this iPad", err);
   }
   collecting.saved = record;
   location.hash = "#collect-done";
 });
-
-// ---- done: summary and export ----
 
 onShow["collect-done"] = () => {
   const s = collecting.saved;
@@ -1675,22 +1490,24 @@ $("done-export").addEventListener("click", async () => {
   if (s) await exportSessions([s], `${s.subjectId}-s${s.session}.json`);
 });
 
-// the share sheet where there is one (AirDrop, Files, Mail on iPad),
-// otherwise a download. one session exports as an object, several as an
-// array - both shapes collected.py reads.
 async function exportSessions(sessions, filename) {
   const clean = sessions.map(({ id, exported, ...s }) => s);
   const file = new File([JSON.stringify(clean.length === 1 ? clean[0] : clean, null, 2)], filename, { type: "application/json" });
-  try {
-    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: filename });
-    else download(file);
-  } catch (err) {
-    if (err.name === "AbortError") return false; // they closed the share sheet
-    download(file);
-  }
+  if (!(await shareFile(file))) return false;
   const ids = sessions.map((s) => s.id).filter((id) => id != null);
   if (ids.length) await markExported(ids).catch((err) => console.warn("NeuroTrace: couldn't mark sessions exported", err));
   toast(copy.EXPORTED);
+  return true;
+}
+
+async function shareFile(file) {
+  try {
+    if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: file.name });
+    else download(file);
+  } catch (err) {
+    if (err.name === "AbortError") return false;
+    download(file);
+  }
   return true;
 }
 
@@ -1705,23 +1522,16 @@ function download(file) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-// ---------- settings ----------
-
-// "auto" leaves the choice to prefers-color-scheme, light/dark pin it via
-// data-theme, which styles.css keys the token sets to.
 function applyTheme(theme) {
   if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
 }
 
-$("settings-age").innerHTML = copy.AGE_CHOICES
-  .map(({ label }) => `<label class="chip"><input type="radio" name="s-age" value="${label}"><span>${label}</span></label>`)
-  .join("");
+$("settings-age").innerHTML = ageChips("s-age");
 
 const check = (name, value) =>
   document.querySelectorAll(`#screen-settings input[name="${name}"]`).forEach((r) => (r.checked = r.value === value));
 
-// order matches copy.ACCENTS. styles.css holds each accent's light and dark values.
 const ACCENT_IDS = ["blue", "indigo", "violet", "teal", "amber", "rose", "graphite"];
 $("accent-choices").innerHTML = copy.ACCENTS
   .map((name, i) => `<label class="accent-option" data-accent="${ACCENT_IDS[i]}"><input type="radio" name="accent" value="${ACCENT_IDS[i]}" aria-label="${name}"><span class="accent-dot"></span></label>`)
@@ -1745,8 +1555,6 @@ onShow.settings = () => {
   $("delete-status").textContent = "";
 };
 
-// every change saves right away - no Save button to forget.
-// a new theme or accent spreads out from the control that was tapped.
 $("screen-settings").addEventListener("change", ({ target }) => {
   const { value } = target;
   const r = target.closest("label").getBoundingClientRect();
@@ -1781,18 +1589,14 @@ $("delete-all").addEventListener("click", async () => {
   }
 });
 
-// placeholder logout: back to the signed-out home. check-ins stay on the device.
 $("logout").addEventListener("click", () => {
   setPrefs({ signedIn: false });
   current = null;
   location.hash = "#home";
 });
 
-// ---------- signed-out home: intro, how it works, who you're compared with ----------
-
 $("how-steps").replaceChildren(...copy.HOW_STEPS.map((step) => el("li", null, step)));
 
-// placeholder login until accounts exist: consent once per device, then the tabs.
 $("login").addEventListener("click", () => {
   if (!getPrefs().consented) {
     location.hash = "#consent";
@@ -1811,7 +1615,7 @@ onShow.home = async () => {
     });
     $("about-reference").hidden = false;
   } catch {
-    $("about-reference").hidden = true; // comparison information isn't available so hide it
+    $("about-reference").hidden = true;
   }
 };
 
@@ -1820,26 +1624,18 @@ applyAccent(getPrefs().accent);
 applyMotion(getPrefs().motion);
 matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", () => applyMotion(getPrefs().motion));
 
-// ---------- motion setup ----------
-
 const tabbarEl = $("tabbar");
 addEventListener("resize", () => moveLens(tabbarEl));
 $("measuring-steps").replaceChildren(...copy.MEASURE_STEPS.map((step) => el("li", null, step)));
 mountMascots();
-// the home hero's pen dot is SMIL, which CSS can't stop - so pause it by hand.
 if (reduced()) document.querySelectorAll(".hero svg").forEach((svg) => svg.pauseAnimations());
 
-// ---------- error ----------
-
 onShow.error = () => {
-  document.getElementById("error-message").textContent = loadError.message;
+  $("error-message").textContent = loadError.message;
 };
 
-// ---------- init ----------
-
-// data-copy="KEY [KEY …]" -> the copy.js sentences, joined with a space.
-document.querySelectorAll("[data-copy]").forEach((el) => {
-  el.textContent = el.dataset.copy.split(" ").map((key) => copy[key]).join(" ");
+document.querySelectorAll("[data-copy]").forEach((node) => {
+  node.textContent = node.dataset.copy.split(" ").map((key) => copy[key]).join(" ");
 });
 drawArt();
 addEventListener("hashchange", route);
