@@ -1,7 +1,3 @@
-// every user-facing string plus per-feature display metadata, all in one file so
-// it can be checked against Markdowns/NeuroTrace_ClaimsRules.md in one place
-// (Global Constraint 10). pure data + tiny string helpers - no DOM.
-
 export const NOT_A_DIAGNOSIS =
   "These are measurements of how you moved during the tasks, compared with other people who " +
   "took the same tasks. They are not a diagnosis and cannot tell you whether you have a " +
@@ -11,10 +7,8 @@ const MANY_THINGS =
   "Many things move these numbers — caffeine, fatigue, sleep, anxiety, medication timing, cold " +
   "hands, familiarity with the task. One drawing is a single reading, not a pattern.";
 
-// the consent card only uses the first sentence (Consent.dc.html).
 export const MANY_THINGS_SHORT = MANY_THINGS.slice(0, MANY_THINGS.indexOf(".") + 1);
 
-// indexed by tier. label is verbatim (Global Constraint 3) - never reword it.
 export const TIERS = [
   {
     label: "Within typical range",
@@ -41,11 +35,8 @@ export const TIERS = [
   },
 ];
 
-// labels for the three-step result indicator on the results screen.
 export const TIER_SHORT = ["Typical", "Some outside", "Multiple outside"];
 
-// keyed by SPIRAL_FEATURE_ORDER name. score-check.mjs asserts every key has
-// an entry here with a group that exists in GROUPS.
 export const MEASURES = {
   spiral_duration: { name: "Drawing time", group: "speed", hi: "Took longer than", lo: "Quicker than" },
   spiral_max_deviation: { name: "Largest wobble", group: "shape", hi: "Larger than", lo: "Smaller than" },
@@ -74,7 +65,6 @@ export function measureSentence(key, frac) {
   return p >= 50 ? `${hi} ${p}% of the reference group` : `${lo} ${100 - p}% of the reference group`;
 }
 
-// the 50s bracket is everyone under 60 - see training/neurotrace/collected.py: age_bracket.
 const AGE_PHRASE = {
   all: "of all ages",
   "50s": "aged under 60",
@@ -99,15 +89,10 @@ export const AGE_CHOICES = [
   { label: "Prefer not to say", bracket: null },
 ];
 
-// verbatim safe sentences from ClaimsRules, used across the setup screens.
 export const PITCH = "NeuroTrace turns an ordinary phone into a motor-function measurement tool.";
 export const TRACKS = "It reports where each measure falls relative to a reference population and tracks how it changes over time.";
 export const ON_DEVICE = "All analysis runs on the device. No motor data ever leaves the phone.";
 
-// screen sentences taken verbatim from the design mockups (*.dc.html), which
-// were written against ClaimsRules. index.html pulls every sentence from this
-// file through data-copy="KEY", but headings, legends and button/chip labels
-// stay in the markup.
 export const CONSENT_UNDERSTAND = "I understand this is a measurement tool, not a medical diagnosis.";
 export const CONSENT_ADULT = "I am 18 years of age or older.";
 export const CONSENT_HELP = "Tick both boxes to continue.";
@@ -132,18 +117,9 @@ export const COLLECT_DRAW_INSTRUCTION =
 export const SESSION_SAVED =
   "Three spirals are stored on this iPad. Thank the participant — no results are shown in collection mode.";
 
-// error screen (not in any mockup): its heading "We can't show results"
-// (index.html) and this sentence are carried over from the old app.js
-// results-error copy. the old follow-on about going back to replay the
-// drawing is dropped bc there's no replay screen anymore.
 export const NOTHING_SCORED = "Nothing was scored.";
-
-// draw screen, for when a resize wipes the trial (not in any mockup): worded
-// in the task plan for the pad's resize guard. it's an instruction about the
-// screen, nothing about the person, so no ClaimsRules sentence applies.
 export const RESIZE_CLEARED = "The screen changed size, so this spiral was cleared. Please draw it again.";
 
-// results screen sentences - verbatim from Results.dc.html.
 export const STOOD_OUT_CAPTION = "The measures that moved this result the most.";
 export const EVERY_MEASURE_CAPTION =
   "Each dot shows where you sit among the reference group. The mark in the middle is the halfway point.";
@@ -151,15 +127,9 @@ export const RAW_LEGEND = "What the screen recorded.";
 export const FILTERED_LEGEND =
   "The same line smoothed (100 Hz, 15 Hz low-pass) — the version every measure is taken from.";
 export const SPEED_CAPTION = "From your first touch on the left to your last on the right.";
-// not in a mockup: store.js only keeps raw drawings for the newest three check-ins (handoff B6).
 export const DRAWING_PRUNED = "The drawing itself is kept only for your three most recent check-ins.";
-
-// variant A (design canvas) - the plain line under the results verdict.
-// same claim as CONSENT_UNDERSTAND, so it's ClaimsRules-safe.
 export const RESULT_SUMMARY = "This is a measurement of how you drew today, not a diagnosis.";
 
-// settings and About tabs - new copy, written against ClaimsRules. it says
-// what the software does and where the comparison comes from, nothing more.
 export const SETTINGS_DETAILS_HELP = "Used to choose who you are compared with. Changes apply to your next check-in.";
 export const APPEARANCE_HELP = "Automatic follows your device's setting.";
 export const DELETE_HELP = "Removes every check-in saved on this device. This can't be undone.";
@@ -174,8 +144,6 @@ export const HOW_STEPS = [
 ];
 export const CREDIT = "Made by Sanchit Bhadani, Aryan Modi, and Mihir Malladi for the 2026 Congressional App Challenge.";
 
-// signed-out home, account, testing and dashboard - new copy. accounts don't
-// exist yet, so logging in is a placeholder and the copy says so.
 export const LOGIN_NOTE = "Accounts aren't set up yet. For now, logging in opens the app on this device.";
 export const LOGOUT_HELP = "Accounts aren't set up yet. Logging out takes you back to the home page. Your check-ins stay on this device.";
 export const TESTING_BLURB =
@@ -183,16 +151,11 @@ export const TESTING_BLURB =
 export const MED_BLURB = "The medicines you take, with the dose and when you take them.";
 export const MED_NOT_SAVED = "Not saved yet. This part of the app is still being built.";
 
-// training tab. Today's focus and This week are still sample layouts.
-// ClaimsRules: sample data must be visibly labelled as sample data.
 export const TRAINING_BLURB = "Short practice exercises. Each one gets a little harder once you've mastered its current level.";
 export const TRAINING_WHY = "Why this one: wobble was your most unusual measure in your Sep 30 check-in.";
 export const FOCUS_SAMPLE = "Sample. Picking today's exercise from your check-ins isn't built yet.";
 export const WEEK_SAMPLE = "Sample. Practice days aren't counted yet.";
 
-// training exercises - new copy, written against ClaimsRules' training
-// section: it's practice, and every sentence is about what was measured on
-// this try, never about the person's condition.
 export const EXERCISE_NAMES = {
   "big-writing": "Big writing", rhythm: "Rhythm", "steady-tracing": "Steady tracing", "hand-skills": "Hand skills",
 };
@@ -209,7 +172,6 @@ export const PAD_LABELS = {
   "steady-tracing": "Tracing area with a spiral guide",
   rhythm: "Tracing area with a wave and a dot to follow",
 };
-// what to do right now, shown above the exercise.
 export const WATCH = "Watch the dot trace the spiral.";
 export const LOOK = "Look at the spiral, from the middle out.";
 export const imagine = (n) => `Now picture yourself drawing it. ${n}`;
@@ -234,7 +196,6 @@ export const TARGET_LABEL = "Reach this line";
 export const TOO_FEW_LOOPS = "Too few loops to count. Write at least 4 tall loops across the row.";
 export const VERDICT_HIT = "Hit";
 export const VERDICT_MISS = "Not yet";
-// reached the target but slower or shakier than recent tries, so not counted.
 export const VERDICT_NOT_COUNTED = {
   "big-writing": "Reached the line, but not counted",
   "steady-tracing": "Accurate, but not counted",
@@ -291,7 +252,6 @@ export const paceVs = (vs) =>
   vs == null ? "Nothing to compare with yet."
     : Math.abs(vs) < 0.05 ? "About the same pace as your recent tries."
     : `${pct(vs)}% ${vs > 0 ? "faster" : "slower"} than your recent tries.`;
-// a share as a whole percentage, or "less than 1" so a close line doesn't read as 0%.
 const share = (x) => (x < 0.005 ? "less than 1" : String(pct(x)));
 export const tracingAccuracy = (acc, limit) =>
   `On average your line was ${share(acc)}% of the spiral's size away from the guide. A hit needs ${pct(limit)}% or less.`;
@@ -324,8 +284,6 @@ export const LEVEL_DOWN = {
 export const tooHardToast = (n) => `Level ${n} for today`;
 export const NOT_BUILT = "Not built yet";
 
-// progress tab: first vs latest check-in. both are placed against the same
-// reference, and the caption says one pair of readings isn't a trend.
 export const PROGRESS_BLURB = "Your first check-in next to your latest, measure by measure.";
 export const PROGRESS_EMPTY = "Do two check-ins with the same hand and the same pen or finger to compare them here.";
 export const PROGRESS_CAPTION =
@@ -337,7 +295,6 @@ export const REPLAY_MISSING = "No drawing was kept for this check-in.";
 export const progressSetup = (hand, inputType) =>
   `Comparing check-ins drawn with your ${hand} hand, using ${INPUT_PHRASE[inputType] ?? "the same input"}.`;
 
-// motion, accent colours and the measuring overlay - new copy.
 export const ACCENT_HELP = "Changes the colour of buttons, links and highlights.";
 export const MOTION_HELP = "Reduced turns off moving effects. Automatic follows your device's setting.";
 export const SAVED = "Saved";
@@ -349,10 +306,8 @@ export const MEASURE_STEPS = [
   "Measuring 12 things about it",
   "Comparing with the reference group",
 ];
-// names match the swatch order in index.html.
 export const ACCENTS = ["Blue", "Indigo", "Violet", "Teal", "Amber", "Rose", "Graphite"];
 
-// collection mode - new copy for the facilitator (docs/COLLECTED_FORMAT.md).
 export const COLLECT_CONSENT = "Written consent for this participant is on file.";
 export const DIAGNOSIS_NOTE =
   "Only participants with no diagnosis are added to the healthy reference. Everyone else is kept, labelled and left out of it.";

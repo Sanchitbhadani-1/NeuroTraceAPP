@@ -1,14 +1,5 @@
-// the drawing pad: spiral guide, start dot, and pointer capture into the
-// trace shape of schema/trace.schema.json. holds no app state - the personal
-// #draw flow and collection mode each wrap their own canvas with it.
-//
-// the canvas has to sit alone in a positioned sheet (<div class="pad">) bc the
-// pad puts the start dot's pulsing halo in there, under the transparent
-// canvas.
-
 const TURNS = 4;
 
-// shared by the pad guide and app.js's brand mark and spiral art.
 export function spiralPoints(r0, r1, turns, steps) {
   const pts = [];
   for (let i = 0; i <= steps; i++) {
@@ -20,19 +11,15 @@ export function spiralPoints(r0, r1, turns, steps) {
   return pts;
 }
 
-const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+export const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-// matches the schema's inputType enum.
 const mapInputType = (pointerType) => (pointerType === "pen" ? "pencil" : pointerType);
 
-// a coarse hint, not the fingerprint-y full UA string. iPadOS Safari
-// reports itself as a Mac by default, but no Mac has a multi-touch screen.
 function deviceLabel() {
   if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) return "iPad";
   return navigator.userAgent.match(/iPhone|iPad/)?.[0] ?? (navigator.platform || "unknown");
 }
 
-// the check-in's guide: the 4-turn spiral, starting at the centre.
 function spiralGuide(ctx, w, h) {
   ctx.strokeStyle = cssVar("--guide");
   ctx.lineWidth = Math.max(2, w / 180);
@@ -42,29 +29,24 @@ function spiralGuide(ctx, w, h) {
   ctx.stroke();
 }
 
-// onInk(info) runs when the trial's ink changes without the caller asking:
-// at every stroke start ({}) and when a resize wipes it ({ cleared: "resize" }).
-// guide(ctx, w, h) draws what sits under the ink - training exercises pass
-// their own, everything else gets the spiral. overlay(ctx, w, h), if given,
-// draws over the ink on every repaint.
 export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }) {
   const ctx = canvas.getContext("2d");
   const halo = document.createElement("span");
   halo.className = "pad-start";
   halo.hidden = true;
-  canvas.before(halo); // earlier in the sheet = painted under the canvas
+  canvas.before(halo);
 
-  let w = 0, h = 0;          // CSS size of the canvas - every coordinate is in this space
-  let samples = [];          // the whole trial - never reset by a pointerdown (Constraint 5)
-  let starts = [];           // index into samples where each stroke begins
-  let t0 = 0;                // timeStamp of the trial's first sample
-  let inputType = null;      // from the trial's first pointer
+  let w = 0, h = 0;
+  let samples = [];
+  let starts = [];
+  let t0 = 0;
+  let inputType = null;
   let penSeen = false;
-  let active = null;         // pointerId of the stroke in progress
+  let active = null;
   let dot = false;
 
   function draw() {
-    if (!w) return; // not laid out yet (screen hidden), the ResizeObserver draws it when it shows
+    if (!w) return;
     ctx.clearRect(0, 0, w, h);
     guide(ctx, w, h);
 
@@ -79,8 +61,6 @@ export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }
     overlay?.(ctx, w, h);
   }
 
-  // strokes samples[from - 1 .. to) - or, for a stroke's first sample, a
-  // zero-length line, which the round caps turn into a dot so a tap still shows.
   function ink(from, to) {
     const first = starts.includes(from) ? from : from - 1;
     ctx.strokeStyle = cssVar("--accent");
@@ -92,14 +72,9 @@ export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }
     ctx.stroke();
   }
 
-  // devicePixelRatio-aware: backing store at full device resolution, context
-  // scaled so everything else stays in CSS pixels. setTransform (not scale)
-  // keeps repeat calls idempotent so they don't compound.
   new ResizeObserver(([entry]) => {
     const { width, height } = entry.contentRect;
-    if (!width || !height) return; // hidden screen: keep the trial for when it comes back
-    // a sample only means something against the canvas size it was drawn on,
-    // so a trial can't straddle a resize (rotation, split view).
+    if (!width || !height) return;
     const cleared = (width !== w || height !== h) && samples.length > 0;
     if (cleared) reset();
     w = width;
@@ -114,8 +89,6 @@ export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }
 
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
 
-  // read at event time, never cached - screens slide in (a 280 ms translateY)
-  // and a rect taken mid-slide would offset every y against the guide.
   function addSamples(events) {
     const rect = canvas.getBoundingClientRect();
     const from = samples.length;
@@ -135,34 +108,22 @@ export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }
 
   canvas.addEventListener("pointerdown", (ev) => {
     if (ev.pointerType === "pen") {
-      // a palm that landed before the Pencil isn't part of the drawing:
-      // while the trial is still touch-only the first pen drops that ink
-      // (and the touch pointer, even mid-stroke) and starts the trial fresh.
-      // Constraint 5 still holds for the drawer's own pen lifts.
-      // ponytail: a finger-then-Pencil switch mid-trial loses the finger ink,
-      // keep it only if people really do switch.
       if (!penSeen && inputType === "touch") reset();
       penSeen = true;
     }
-    if (!ev.isPrimary || ev.button !== 0 || active !== null) return; // one pointer at a time
-    if (ev.pointerType === "touch" && penSeen) return; // palm resting beside the pencil
+    if (!ev.isPrimary || ev.button !== 0 || active !== null) return;
+    if (ev.pointerType === "touch" && penSeen) return;
     active = ev.pointerId;
     if (dot) showStartDot(false);
     if (!samples.length) inputType = mapInputType(ev.pointerType);
-    // a lifted finger carries on in the same trial: same samples, same t0,
-    // just a gap in t - never a reset.
     starts.push(samples.length);
     addSamples([ev]);
     onInk({});
-    // last on purpose: it throws for a pointerId the browser doesn't know (synthetic
-    // events), and by then the stroke state is already consistent.
-    canvas.setPointerCapture(ev.pointerId);
+    canvas.setPointerCapture(ev.pointerId); // throws on fake events, keep last
   });
 
   canvas.addEventListener("pointermove", (ev) => {
     if (ev.pointerId !== active) return;
-    // Chrome hands back the full sub-frame history but some browsers hand back
-    // an empty list, which would drop every move sample.
     const batch = ev.getCoalescedEvents ? ev.getCoalescedEvents() : [];
     addSamples(batch.length ? batch : [ev]);
   });
@@ -189,13 +150,9 @@ export function createPad(canvas, { onInk, guide = spiralGuide, overlay = null }
   return {
     reset,
     showStartDot,
-    redraw: draw, // repaint after the overlay's content changes
-    // the event time of the trial's first sample (performance.now() clock), or
-    // null before any ink - lets a caller line the samples up with its own clock.
+    redraw: draw,
     startedAt: () => (samples.length ? t0 : null),
     hasInk: () => samples.length > 0,
-    // copies: the pad stays live and a kept trial can't grow after its
-    // features were computed.
     strokeStarts: () => starts.slice(),
     trace: (hand) => ({ task: "spiral", hand, inputType, deviceLabel: deviceLabel(), samples: samples.slice() }),
   };

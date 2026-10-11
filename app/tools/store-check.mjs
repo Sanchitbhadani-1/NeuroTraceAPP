@@ -1,18 +1,11 @@
-// assert-based check for the pure parts of store.js that can run outside a
-// browser (no IndexedDB in Node, so those paths need real-browser testing).
-// not a framework - just the smallest thing that fails when the logic
-// breaks. run: node app/tools/store-check.mjs
-
 import assert from "node:assert/strict";
 import { newSubjectId, getPrefs, setPrefs } from "../store.js";
 
-// --- newSubjectId: format ----------------------------------------------
 for (let i = 0; i < 200; i++) {
   const id = newSubjectId(new Set());
   assert.match(id, /^[0-9a-f]{6}$/, `"${id}" is not 6 lowercase hex chars`);
 }
 
-// --- newSubjectId: retries until not in `existing` ----------------------
 {
   const existing = new Set(["aaaaaa", "bbbbbb"]);
   for (let i = 0; i < 200; i++) {
@@ -21,7 +14,6 @@ for (let i = 0; i < 200; i++) {
   }
 }
 
-// --- newSubjectId: many calls stay unique against a growing set ---------
 {
   const seen = new Set();
   for (let i = 0; i < 500; i++) {
@@ -31,10 +23,10 @@ for (let i = 0; i < 200; i++) {
   }
 }
 
-// --- getPrefs: defaults when localStorage is absent (Node has none) -----
-assert.deepEqual(getPrefs(), { onboarded: false, consented: false, ageChoice: null, hand: "right" });
-
-// --- setPrefs: never throws even with no localStorage to write to -------
+assert.deepEqual(getPrefs(), {
+  onboarded: false, consented: false, signedIn: false, ageChoice: null,
+  hand: "right", theme: "auto", accent: "blue", motion: "auto",
+});
 assert.doesNotThrow(() => setPrefs({ onboarded: true }));
 
 console.log("STORE OK");

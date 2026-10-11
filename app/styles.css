@@ -1,12 +1,3 @@
-/* NeuroTrace visual system. DESIGN.md at the repository root is the
-   reference for every token and component here - change both together.
-   audience: 55-85, some with tremor - so big type and targets, one accent (never
-   a verdict colour), solid surfaces, and one switch for all motion. */
-
-/* type: Newsreader (serif, optical sizes) speaks for the app in titles,
-   Atkinson Hyperlegible Next - drawn by the Braille Institute for low-vision
-   readers - carries everything people read and tap. both self-hosted
-   (fonts/, SIL OFL) so nothing is fetched at runtime. */
 @font-face {
   font-family: "Atkinson Hyperlegible Next";
   src: url("fonts/atkinson-hyperlegible-next-latin-wght.woff2") format("woff2");
@@ -36,10 +27,8 @@
   --accent-fill: var(--a-light);
   --accent-soft: color-mix(in srgb, var(--a-light) 10%, #ffffff);
 
-  --hair: 1px; /* every hairline. prefers-contrast: more thickens them all */
+  --hair: 1px;
 
-  /* 1 px at the default 17 px text size. type is sized in multiples of it
-     (rem underneath) so it follows iOS Dynamic Type via -apple-system-body. */
   --px: calc(1rem / 17);
   --body: calc(17 * var(--px));
 
@@ -49,10 +38,6 @@
   color-scheme: light dark;
 }
 
-/* accent colours (Settings > Accent colour): light-mode text and fill,
-   dark-mode text, dark-mode fill. every one passes 4.5:1 as text and under
-   white text, in both modes. there's no green and no traffic-light red, so
-   the accent can never read as a verdict on a result (Constraint 2). */
 :root { --a-light: #0066cc; --a-dark: #2997ff; --a-fill-dark: #0071e3; }
 :root[data-accent="indigo"] { --a-light: #4f46e5; --a-dark: #8e8cff; --a-fill-dark: #5b54e8; }
 :root[data-accent="violet"] { --a-light: #7c3aed; --a-dark: #bf8bff; --a-fill-dark: #8b4ff0; }
@@ -61,8 +46,6 @@
 :root[data-accent="rose"] { --a-light: #c2185b; --a-dark: #ff7eb0; --a-fill-dark: #c7206a; }
 :root[data-accent="graphite"] { --a-light: #4a4a4f; --a-dark: #b8b8be; --a-fill-dark: #5a5a60; }
 
-/* dark tokens: the system setting, unless Settings > Appearance pins
-   data-theme on <html>. keep the two blocks identical. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000;
@@ -96,15 +79,12 @@
   :root { --body: calc(19 * var(--px)); }
 }
 
-/* 17 px everywhere. on iOS/iPadOS it's the user's Dynamic Type size instead. */
 html {
   font-size: 106.25%;
   -webkit-text-size-adjust: 100%;
   background: var(--bg);
 }
-/* -webkit-touch-callout only exists on iOS/iPadOS. macOS Safari also knows
-   -apple-system-body but its body style is 13 pt, which would shrink the
-   whole app. */
+
 @supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html { font: -apple-system-body; }
 }
@@ -123,8 +103,7 @@ h1, h2, h3, p { margin: 0; }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 input { caret-color: var(--accent); }
 html { accent-color: var(--accent); }
-/* pages still scroll by touch, wheel and keyboard, only the scrollbar box
-   is hidden, on every scrolling element. */
+
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
 h1, h2, h3 {
@@ -139,11 +118,8 @@ a { color: var(--accent); text-decoration: none; }
 svg { display: block; }
 
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-/* the router focuses each screen's h1 so screen readers announce the new
-   screen. it's not a control so it gets no ring. */
-h1:focus { outline: none; }
 
-/* ---------- screens: one centred column, primary action at the bottom ---------- */
+h1:focus { outline: none; }
 
 .screen {
   display: flex;
@@ -160,16 +136,13 @@ h1:focus { outline: none; }
     max(env(safe-area-inset-left), 24px);
   animation: enter 280ms var(--ease) both;
 }
-/* `hidden` always wins. Any later rule that sets `display` on a screen or
-   component (the iPad grid layouts do) would otherwise un-hide it. */
+
 [hidden] { display: none !important; }
 
 @keyframes enter {
   from { opacity: 0; transform: translateY(8px); }
 }
 
-/* padding-top keeps a gap when the content above fills the screen and
-   margin-top: auto collapses to nothing. */
 .actions {
   margin-top: auto;
   padding-top: 24px;
@@ -181,8 +154,6 @@ h1:focus { outline: none; }
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-
-/* ---------- type ---------- */
 
 h1 {
   margin-top: 16px;
@@ -213,9 +184,6 @@ h1 + .lede { margin-top: 10px; }
   letter-spacing: 0.06em;
 }
 
-/* ---------- brand mark and spiral art (paths filled in by app.js) ----------
-   not decoration for its own sake - it's literally the shape the app measures. */
-
 .brand {
   display: flex;
   align-items: center;
@@ -244,9 +212,6 @@ h1 + .lede { margin-top: 10px; }
   stroke-linejoin: round;
 }
 
-/* the one shadow in the app (Constraint 9). shrinks on short phones so the
-   welcome screen still fits without scrolling: 572 px is everything else on
-   it at 390 × 844. */
 .hero {
   margin-top: 20px;
   align-self: center;
@@ -261,7 +226,6 @@ h1 + .lede { margin-top: 10px; }
 }
 .hero svg { width: 86.8%; height: 86.8%; }
 
-/* pathLength="1" on the path makes the dash maths length-independent. */
 .draw-in {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
@@ -290,8 +254,6 @@ h1 + .lede { margin-top: 10px; }
   stroke-linejoin: round;
 }
 
-/* ---------- controls ---------- */
-
 .btn {
   display: flex;
   align-items: center;
@@ -309,8 +271,7 @@ h1 + .lede { margin-top: 10px; }
   -webkit-tap-highlight-color: transparent;
   transition: transform 120ms var(--ease), opacity 120ms;
 }
-/* every tap gets a visible response - people with reduced sensation need to
-   see that it registered. */
+
 .btn:active:not(:disabled) { transform: scale(0.97); opacity: 0.8; }
 .btn-primary { background: var(--accent-fill); color: #ffffff; }
 .btn-secondary {
@@ -326,7 +287,6 @@ h1 + .lede { margin-top: 10px; }
 }
 .btn svg { width: 22px; height: 22px; stroke-width: 2.2; }
 
-/* text links in bars and footers: still a 44 px target. */
 .bar-link, .back, .links a, .topbar a {
   display: flex;
   align-items: center;
@@ -342,8 +302,6 @@ h1 + .lede { margin-top: 10px; }
 .links { display: flex; flex-wrap: wrap; column-gap: 24px; }
 .links a { font-size: calc(15 * var(--px)); }
 
-/* Back / title / (empty) - a fixed side column on each side keeps the
-   middle item truly centred. */
 .bar {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr) 88px;
@@ -385,8 +343,6 @@ h1 + .lede { margin-top: 10px; }
 }
 .pill:empty { display: none; }
 
-/* ---------- cards ---------- */
-
 .card {
   padding: 20px;
   border-radius: 16px;
@@ -399,8 +355,6 @@ h1 + .lede { margin-top: 10px; }
 
 .notice { margin-top: 24px; }
 
-/* consent rows: the whole 72 px row is the label so a shaky tap anywhere
-   on it ticks the box. the divider is inset past the checkbox, iOS-style. */
 .checks { margin-top: 16px; padding: 0; gap: 0; overflow: hidden; }
 .check {
   position: relative;
@@ -428,10 +382,6 @@ h1 + .lede { margin-top: 10px; }
   flex-shrink: 0;
   accent-color: var(--accent);
 }
-
-/* ---------- radio chips (About you, collection details) ----------
-   a real radio sits invisibly under each pill so keyboard, screen reader and
-   form semantics are the browser's own - the pill just shows its state. */
 
 fieldset { margin: 28px 0 0; padding: 0; border: 0; min-width: 0; }
 legend {
@@ -478,8 +428,6 @@ legend {
 .chip:active span { transform: scale(0.97); opacity: 0.8; }
 fieldset + .sub { margin-top: 10px; }
 
-/* ---------- home (signed out): intro, log in, what was the About tab ---------- */
-
 #screen-home h1 {
   margin-top: 32px;
   font-size: calc(40 * var(--px));
@@ -488,8 +436,6 @@ fieldset + .sub { margin-top: 10px; }
 #screen-home .lede { margin-top: 12px; }
 .home-actions { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
 .home-credit { margin-top: 20px; }
-
-/* ---------- dashboard ---------- */
 
 #screen-dashboard .brand-name { font-size: calc(21 * var(--px)); }
 .checkin { margin-top: 16px; gap: 16px; }
@@ -509,7 +455,6 @@ fieldset + .sub { margin-top: 10px; }
 
 #screen-dashboard .actions { gap: 8px; }
 
-/* medication: a placeholder form until saving exists. */
 .med { margin-top: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field-label { font-weight: 600; }
@@ -524,11 +469,7 @@ fieldset + .sub { margin-top: 10px; }
 }
 .text-input::placeholder { color: var(--ink2); opacity: 1; }
 
-/* ---------- testing ---------- */
-
 #screen-testing .checkin { margin-top: 24px; }
-
-/* ---------- training: sample layout until the exercises exist ---------- */
 
 .title-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .title-row h1 { margin-top: 0; }
@@ -548,7 +489,7 @@ fieldset + .sub { margin-top: 10px; }
 }
 .exercise:active { transform: scale(0.97); }
 .exercise-name { font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
-/* which days this week had practice: filled = practised. a count, not a verdict. */
+
 .week { margin-top: 12px; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 .week-dots { display: flex; gap: 10px; }
 .week-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--fill); }
@@ -559,9 +500,6 @@ fieldset + .sub { margin-top: 10px; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .week-note { flex-basis: 100%; order: 1; }
 
-/* ---------- training: one exercise ---------- */
-
-/* .btn and .actions set display, which would beat the hidden attribute. */
 .btn[hidden], .actions[hidden] { display: none; }
 .pad.pad-wide { width: 100%; aspect-ratio: 3 / 2; }
 .ex-progress { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
@@ -569,9 +507,7 @@ fieldset + .sub { margin-top: 10px; }
 .hit-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--fill); }
 .hit-dots .on { background: var(--accent); }
 .ex-row { display: flex; flex-direction: column; gap: 2px; padding-top: 12px; border-top: var(--hair) solid var(--line); }
-/* what to do right now (watch, picture it, follow the dot). always two lines
-   tall on a phone and one on an iPad, so the pad below never moves while a
-   pen is on it - every message fits in that. */
+
 .ex-phase { margin-top: 10px; min-height: 3em; font-weight: 600; }
 @media (min-width: 700px) {
   .ex-phase { min-height: 1.5em; }
@@ -593,10 +529,6 @@ fieldset + .sub { margin-top: 10px; }
 }
 .text-btn:disabled { color: var(--ink2); cursor: default; }
 
-/* ---------- progress: first vs latest check-in ---------- */
-/* the first check-in is the hollow dot, the latest the filled one. both are
-   labelled in words above the track, so the dots never carry it alone. */
-
 #progress-body { display: flex; flex-direction: column; }
 .progress-meta { margin-top: 16px; }
 .replay-both { margin-top: 12px; }
@@ -610,8 +542,6 @@ fieldset + .sub { margin-top: 10px; }
 .legend-key.then { background: transparent; box-shadow: inset 0 0 0 2.5px var(--accent); }
 .track-dot.then { background: var(--surface); box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 3px var(--surface); }
 
-/* ---------- drawing ---------- */
-
 #draw-progress { margin-top: 4px; align-self: center; width: 96px; }
 #screen-draw h1 {
   margin-top: 20px;
@@ -620,9 +550,6 @@ fieldset + .sub { margin-top: 10px; }
 }
 #screen-draw h1 + .lede { margin-top: 8px; }
 
-/* the pad sheet around the canvas. square, as large as fits above the
-   buttons. the touch properties stop iOS from scrolling, selecting or
-   showing a callout mid-stroke, and reach the canvas inside. */
 .pad {
   position: relative;
   overflow: hidden;
@@ -643,13 +570,9 @@ fieldset + .sub { margin-top: 10px; }
 @media (min-width: 700px) {
   .pad { border-radius: 28px; }
 }
-/* the canvas has no border of its own, so pointer coordinates measured from
-   its rect are canvas space. */
+
 .pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-/* the start dot's halo (pad.js adds it). the canvas draws the dot itself and
-   is transparent around it, so this pulses under the dot and the guide, like in
-   Draw.dc.html. 36 px is the mockup's r = 18. */
 .pad-start {
   position: absolute;
   left: 50%;
@@ -668,7 +591,6 @@ fieldset + .sub { margin-top: 10px; }
   50% { transform: scale(1.25); opacity: 0.12; }
 }
 
-/* inline notice under the pad (too short, cleared by a resize). */
 .status {
   margin-top: 16px;
   padding: 14px 16px;
@@ -681,8 +603,6 @@ fieldset + .sub { margin-top: 10px; }
 .status svg { width: 22px; height: 22px; color: var(--accent); }
 .status strong { font-weight: 600; }
 
-/* ---------- results ---------- */
-
 #screen-results h1 {
   margin-top: 14px;
   font-size: calc(32 * var(--px));
@@ -690,10 +610,6 @@ fieldset + .sub { margin-top: 10px; }
 }
 #screen-results .actions { margin-top: 28px; }
 
-/* percentile track: 0 on the left, the highest reference value on the right,
-   the halfway mark in the middle so a dot means something without an axis.
-   the sentence above it is the real content - this is a second reading of
-   the same number, so the markup marks it aria-hidden. */
 .track { position: relative; height: 20px; margin: 6px 8px 0; }
 .track::before {
   content: "";
@@ -729,14 +645,11 @@ fieldset + .sub { margin-top: 10px; }
   box-shadow: 0 0 0 3px var(--surface);
   animation: settle 520ms var(--ease) backwards;
 }
-/* travels out from the halfway mark, which is what the position is
-   relative to. */
+
 @keyframes settle {
   from { left: 50%; opacity: 0; }
 }
 
-/* three equal steps with only the one that applies filled - which of three
-   readings this is, never a meter (Constraint 2). */
 .levels {
   margin-top: 18px;
   display: grid;
@@ -753,8 +666,6 @@ fieldset + .sub { margin-top: 10px; }
 .level.on .level-bar { background: var(--accent); }
 .level.on .level-label { color: var(--ink); font-weight: 600; }
 
-/* variant A (design canvas): the first thing under the verdict says what
-   it is not, in words big enough to read without glasses. */
 .summary {
   margin-top: 10px;
   font-size: calc(19 * var(--px));
@@ -810,8 +721,6 @@ fieldset + .sub { margin-top: 10px; }
 .btn-compact { align-self: flex-start; min-height: 48px; padding: 0 20px; }
 .btn-compact svg { width: 16px; height: 16px; }
 
-/* ---------- home: history list ---------- */
-
 .history-list { margin-top: 12px; padding: 0; gap: 0; overflow: hidden; }
 .history-row {
   min-height: 68px;
@@ -828,14 +737,8 @@ fieldset + .sub { margin-top: 10px; }
 .history-when { font-weight: 600; line-height: 1.3; }
 .chevron { width: 20px; height: 20px; color: var(--ink2); stroke-width: 2.2; }
 
-/* ---------- tabs: dashboard, testing, training, progress, settings ---------- */
-
-/* room under the last card for the tab bar. */
 .tabbed { padding-bottom: calc(max(env(safe-area-inset-bottom), 8px) + 104px); }
 
-/* tab bar: docked to the bottom edge like a native one - solid surface, a
-   single hairline on top. the current tab is marked twice, by colour and by
-   a filled pill behind its icon that slides across (motion.js moveLens). */
 .tabbar {
   position: fixed;
   z-index: 10;
@@ -886,17 +789,14 @@ fieldset + .sub { margin-top: 10px; }
 }
 .tab-lens.placed { transition: transform 360ms var(--ease); }
 
-/* an odd last chip ("Prefer not to say") takes the full row instead of
-   wrapping its label inside half of it. */
 .chips > .chip:last-child:nth-child(odd) { grid-column: 1 / -1; }
-/* inside a card the card's own padding is the top margin. */
+
 .card > fieldset:first-child { margin-top: 0; }
 .card > fieldset + fieldset { margin-top: 16px; }
 #screen-settings .section-title { margin-bottom: 12px; }
 
 .card-title { font-size: calc(21 * var(--px)); line-height: 1.2; }
 
-/* how it works: numbered steps, the number in an accent disc. */
 .how { margin: 12px 0 0; padding: 4px 20px; gap: 0; list-style: none; counter-reset: step; }
 .how li {
   counter-increment: step;
@@ -930,11 +830,6 @@ fieldset + .sub { margin-top: 10px; }
   white-space: nowrap;
 }
 
-/* ---------- iPad ---------- */
-/* a portrait iPad keeps the single column (body already 19 px) with a wider
-   drawing pad. from 900 px wide the tab screens and results use two columns.
-   forms and the setup flow stay one narrow column on purpose. */
-
 #results-body { display: flex; flex-direction: column; }
 .results-main, .results-side { display: contents; }
 
@@ -965,22 +860,18 @@ fieldset + .sub { margin-top: 10px; }
   .results-main, .results-side { display: flex; flex-direction: column; }
   .results-main { position: sticky; top: 56px; }
   .results-side > .result-card:first-child { margin-top: 0; }
-  /* Settings: cards flow into two columns, headings kept with their card. */
+
   #screen-settings { display: block; columns: 2; column-gap: 32px; }
   #screen-settings > h1 { column-span: all; }
   #screen-settings .section-title { break-after: avoid; }
   #screen-settings .card { break-inside: avoid; }
-  /* single-column tabs: a readable width rather than the full 1040. */
+
   #screen-testing, #screen-training, #screen-progress { max-width: 760px; }
   #screen-settings .section-title:first-of-type { margin-top: 20px; }
 }
 
-/* ---------- error ---------- */
-
 #error-message { margin-top: 16px; color: var(--ink); }
 #error-message + .lede { margin-top: 12px; }
-
-/* ---------- collection mode: iPad scale, black bar, wider column ---------- */
 
 .collect-screen {
   --body: calc(19 * var(--px));
@@ -1075,7 +966,6 @@ fieldset + .sub { margin-top: 10px; }
 .id-label { font-size: calc(15 * var(--px)); font-weight: 600; color: var(--ink2); }
 .id-box .mono { font-size: calc(40 * var(--px)); font-weight: 600; letter-spacing: 0.08em; }
 
-/* participant form: one card, one question per row. */
 .form-card { margin-top: 28px; gap: 0; padding: 0; }
 .form-card > * { padding: 22px 28px; }
 .form-card > * + * { border-top: var(--hair) solid var(--line); }
@@ -1104,7 +994,6 @@ fieldset + .sub { margin-top: 10px; }
 .export-card { margin-top: 24px; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
 .export-card h2 { font-size: calc(21 * var(--px)); }
 
-/* session summary on the done screen. */
 .facts {
   margin: 36px 0 0;
   width: min(100%, 600px);
@@ -1140,15 +1029,6 @@ fieldset + .sub { margin-top: 10px; }
 #screen-collect-done h1 { margin-top: 28px; }
 #screen-collect-done .lede { max-width: 560px; text-wrap: balance; }
 
-/* ---------- motion & contrast preferences: never optional ---------- */
-
-/* ---------- motion: shared ---------- */
-
-
-/* page transitions (View Transitions API). tabs slide towards the tab you
-   picked, everything else rises in, and a theme or accent change spreads out in
-   a circle from the control that was tapped. the tab bar and title bar keep
-   their own names so they stay put while the page moves. */
 .tabbar { view-transition-name: tabbar; }
 .compact-bar { view-transition-name: compact-bar; }
 :root.vt-ok .screen { animation: none; }
@@ -1173,7 +1053,6 @@ fieldset + .sub { margin-top: 10px; }
   to { clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 50%)); }
 }
 
-/* things that answer a choice: a short settle, and a tick that draws in. */
 @keyframes pop { from { transform: scale(0.94); } }
 .chip input:checked + span,
 .check input:checked { animation: pop 260ms var(--ease); }
@@ -1191,8 +1070,6 @@ fieldset + .sub { margin-top: 10px; }
 :root { --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 @keyframes tick-in { from { transform: scale(0) rotate(-30deg); opacity: 0; } }
 
-/* scroll reveals: cards and rows rise in, staggered, the first time they
-   come into view (motion.js reveal). */
 .reveal {
   opacity: 0;
   transform: translateY(14px);
@@ -1201,19 +1078,14 @@ fieldset + .sub { margin-top: 10px; }
     transform 600ms var(--ease) calc(var(--i, 0) * 70ms);
 }
 .reveal.in { opacity: 1; transform: none; }
-/* the dot waits for its row, then travels out from the halfway mark while
-   the number beside it counts up. */
+
 .measure.reveal:not(.in) .track-dot { visibility: hidden; animation: none; }
 .measure.in .track-dot { animation-duration: 640ms; }
 .num { font-variant-numeric: tabular-nums; }
 
-/* the result level fills in from the left, and so does each finished spiral's
-   progress segment. */
 .level.on .level-bar { transform-origin: left; animation: fill-in 760ms var(--ease) 260ms backwards; }
 .segments .now { transform-origin: left; animation: fill-in 560ms var(--ease) backwards; }
 @keyframes fill-in { from { transform: scaleX(0); } }
-
-/* ---------- motion: title bar, toast ---------- */
 
 .compact-bar {
   position: fixed;
@@ -1262,10 +1134,6 @@ fieldset + .sub { margin-top: 10px; }
 .toast.show svg { animation: draw-tick 380ms var(--ease) 140ms forwards; }
 @keyframes draw-tick { to { stroke-dashoffset: 0; } }
 
-/* ---------- settings controls: segmented choice, accent row ---------- */
-
-/* segmented control: one pad, one sliding thumb (Theme, Motion). the thumb
-   finds its slot with :has() so there's no script. */
 .segmented {
   position: relative;
   margin-top: 12px;
@@ -1307,8 +1175,6 @@ fieldset + .sub { margin-top: 10px; }
 .segment input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 1px; }
 :root { --seg-thumb: #ffffff; }
 
-/* accent colour: one even row of seven, the chosen one ringed and ticked,
-   its name written in the legend so the choice never rests on colour alone. */
 .legend-split { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .legend-value { font-weight: 400; color: var(--ink2); }
 .accents {
@@ -1373,8 +1239,6 @@ fieldset + .sub { margin-top: 10px; }
 :root[data-theme="dark"] .accent-option[data-accent="rose"] { --sw: #c7206a; }
 :root[data-theme="dark"] .accent-option[data-accent="graphite"] { --sw: #5a5a60; }
 
-/* ---------- motion: the mascot ---------- */
-
 .mascot { display: block; width: 100%; height: 100%; overflow: visible; }
 .mascot * { transform-box: view-box; }
 .m-shell { fill: none; stroke: var(--accent); stroke-width: 26; stroke-linecap: round; }
@@ -1396,8 +1260,6 @@ fieldset + .sub { margin-top: 10px; }
 .brand-mascot { width: 36px; height: 36px; flex-shrink: 0; cursor: pointer; }
 .card.empty { align-items: center; text-align: center; }
 .empty-mascot { width: 72px; height: 72px; }
-
-/* ---------- motion: measuring overlay ---------- */
 
 .measuring {
   position: fixed;
@@ -1441,13 +1303,9 @@ fieldset + .sub { margin-top: 10px; }
   animation: pop 260ms var(--ease);
 }
 
-/* ---------- motion: drawing ---------- */
-
-/* the pen dot that keeps tracing the welcome spiral once it has drawn. */
 .pen-dot { fill: var(--accent); opacity: 0; animation: fade-in 500ms ease 3s forwards; }
 @keyframes fade-in { to { opacity: 1; } }
 
-/* a soft glow under the pen tip while it touches the sheet. */
 .pen-tip {
   position: absolute;
   top: 0;
@@ -1472,8 +1330,6 @@ fieldset + .sub { margin-top: 10px; }
   80% { transform: translateX(2px); }
 }
 
-/* ---------- motion: small touches ---------- */
-
 .chevron { transition: transform 220ms var(--ease); }
 .history-row:active .chevron { transform: translateX(4px); }
 @media (hover: hover) and (pointer: fine) {
@@ -1483,10 +1339,6 @@ fieldset + .sub { margin-top: 10px; }
   .history-row:hover .chevron { transform: translateX(3px); }
 }
 
-/* one switch for all motion: <html data-motion="reduce">, set from Settings >
-   Motion or the device's reduced-motion setting (index.html, motion.js).
-   everything jumps to its end state, but a replay the person asks for with a
-   button still runs, bc that's JavaScript they chose to start. */
 :root[data-motion="reduce"] *,
 :root[data-motion="reduce"] *::before,
 :root[data-motion="reduce"] *::after {
@@ -1503,8 +1355,7 @@ fieldset + .sub { margin-top: 10px; }
 
 @media (prefers-contrast: more) {
   :root { --line: #8a8a8a; --hair: 2px; }
-  /* the track is the one place on the results screen where meaning rides on
-     a tone rather than a word */
+
   .track::before { background: #8a8a8a; }
   .track::after { background: var(--ink2); }
 }

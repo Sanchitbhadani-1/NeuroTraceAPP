@@ -1,14 +1,5 @@
-// v2 scoring: session features -> tier + per-measure percentiles.
-// pure functions, no DOM - so node can import it for app/tools/score-check.mjs.
-// mirrors the handoff's scoreSession (B4/B5). the score and its percentile are
-// computed and returned but can never reach the UI (Global Constraint 2) -
-// callers store them, never show them.
-
-// fraction of the bracket's healthy scores strictly below the session score.
 export const TIER_CUTS = [0.75, 0.95];
 
-// throws on purpose - scoring against a model/reference that no longer
-// matches the app's feature pipeline would give wrong numbers (Global Constraint 4).
 export function checkScoringFiles(model, reference, featureOrder) {
   const order = featureOrder.join(",");
   const reExport = "Re-export with training/scripts/export_model.py.";
@@ -58,9 +49,6 @@ export function checkScoringFiles(model, reference, featureOrder) {
   }
 }
 
-// falls back to the pooled "all" bracket if the one asked for doesn't exist
-// or is too thin to trust (handoff: don't compare against a handful of
-// people). key can be missing entirely too - that also means "all".
 export function bracketFor(reference, bracketKey) {
   const key = bracketKey ?? "all";
   const block = reference.brackets[key];
@@ -68,8 +56,6 @@ export function bracketFor(reference, bracketKey) {
   return { key: "all", block: reference.brackets.all };
 }
 
-// per-key mean of the finite values across trials. NaN if every trial's
-// value for that key is non-finite (like spiral_sparc on a short trace).
 export function averageFeatures(perTrial, featureOrder) {
   const out = {};
   for (const k of featureOrder) {
@@ -83,22 +69,16 @@ export function averageFeatures(perTrial, featureOrder) {
   return out;
 }
 
-// strict: how many reference values are below v, as a fraction of n.
-// sorted order is a hint in case someone wants binary search later, but the
-// reference arrays are small so a plain scan is simpler and fast enough.
-export function fractionBelow(v, sorted) {
+export function fractionBelow(v, values) {
   let count = 0;
-  for (const x of sorted) if (x < v) count++;
-  return count / sorted.length;
+  for (const x of values) if (x < v) count++;
+  return count / values.length;
 }
 
 export function scoreSession(perTrial, model, reference, bracketKey) {
   const features = averageFeatures(perTrial, model.featureOrder);
   const { key, block } = bracketFor(reference, bracketKey);
 
-  // standardize each feature against the bracket. a non-finite feature or a
-  // degenerate sd means this feature says nothing here - so it gets no vote,
-  // not a fake zero that would misrepresent the person.
   const weighted = model.featureOrder.map((k, i) => {
     const f = features[k];
     const sd = block.sd[i];
