@@ -37,6 +37,8 @@ enum Copy {
         "Many things move these numbers — caffeine, fatigue, sleep, anxiety, medication timing, cold " +
         "hands, familiarity with the task. One drawing is a single reading, not a pattern."
 
+    static let manyThingsShort = manyThings.firstIndex(of: ".").map { String(manyThings[...$0]) } ?? ""
+
     // Picked by where the combined result falls among the healthy reference group. Below 75%, 75% to 95%,
     // or 95% and up (Score.tierCuts)
     static let tiers = [
@@ -123,6 +125,9 @@ enum Copy {
     static let tracks = "It reports where each measure falls relative to a reference population and tracks how it changes over time."
     static let onDevice = "All analysis runs on this device. Your data only leaves it if you choose to share it."
 
+    static let consentUnderstand = "I understand this is a measurement tool, not a medical diagnosis."
+    static let consentAdult = "I am 18 years of age or older."
+    static let consentHelp = "Check both boxes to continue."
     static let aboutWhy = "Used only to choose who you are compared with. Kept on this device."
     static let handHelp =
         "The hand you will draw with. Use the same one each time so your check-ins compare fairly. To compare your two hands, do one check-in with each."
@@ -190,6 +195,16 @@ enum Copy {
     static let speedCaption = "From your first touch on the left to your last on the right."
     static let resultSummary = "This is a measurement of how you drew today, not a diagnosis."
 
+    static let settingsDetailsHelp = "Used to choose who you are compared with. Changes apply to your next check-in."
+    static let appearanceHelp = "Automatic follows your device's setting."
+    static let deleteHelp =
+        "Removes everything NeuroTrace saved about you on this device: your age group and drawing hand, check-ins, " +
+        "practice, medication and doses, finger tapping tests and home scans. Collection mode's research sessions " +
+        "stay. This can't be undone."
+    static let deleteConfirm = "Delete all your data from this device?"
+    static let deleteConfirmDetail = "This can't be undone."
+    static let deleted = "All your data was deleted."
+    static let deleteFailed = "Couldn't delete everything. Try again."
     static let howSteps = [
         "Trace a spiral on the screen with your finger or an Apple Pencil.",
         "NeuroTrace measures 12 things about the line: its shape, speed, smoothness and tremor.",
@@ -199,10 +214,39 @@ enum Copy {
     static let credit = "Made by Sanchit Bhadani, Aryan Modi, and Mihir Malladi for the 2026 Congressional App Challenge."
 
     static let loginNote = "Accounts aren't set up yet. For now, logging in opens the app on this device."
+    static let logoutHelp = "Accounts aren't set up yet. Logging out takes you back to the welcome screen. Your check-ins stay on this device."
+
+    // Accounts, with Firebase. An account only signs someone in
+    static let accountNote = "Log in or create an account with your email. Your check-ins stay on this device."
+    static let accountLogInLede = "Welcome back. Log in with the email you signed up with."
+    static let accountCreateLede = "All you need is an email and a password, with at least 6 characters."
+    static let accountPrivacy = "Signing in is handled by Google's Firebase. Your check-ins, drawings and medication stay on this device."
+    static let accountBadEmail = "That email doesn't look right. Check it and try again."
+    static let accountTaken = "There's already an account with that email. Log in instead."
+    static let accountWeakPassword = "That password is too short. Use at least 6 characters."
+    static let accountWrong = "That email and password don't match. Try again, or tap Forgot password."
+    static let accountOffline = "Couldn't connect. Make sure you're online, then try again."
+    static let accountTooMany = "Too many tries. Wait a few minutes, then try again."
+    static let accountRecentLogin = "For your safety, log out and log back in, then delete your account."
+    static let accountDisabled = "This account has been turned off."
+    static let accountNotTurnedOn = "Email accounts aren't turned on for this app yet."
+    static let accountFailed = "Something went wrong. Try again."
+    static let accountNeedEmail = "Type your email above first, then tap Forgot password."
+    static func accountResetSent(_ email: String) -> String {
+        "Check your email. If there's an account for \(email), a link to reset the password is on its way."
+    }
+    static func signedInAs(_ email: String) -> String { "Signed in as \(email)" }
+    static let accountLogoutHelp = "Logging out takes you back to the welcome screen. Your check-ins stay on this device."
+    static let accountDeleteConfirm = "Delete your account?"
+    static let accountDeleteDetail = "You won't be able to log in with it again. Your check-ins stay on this device until you use Delete all my data."
+    static let accountDeleted = "Account deleted"
     static let testingBlurb =
         "Short tests that measure how you move. Use the same hand on the same device each time, so your results compare fairly."
 
     static let replayMissing = "No drawing was kept for this check-in."
+    static let accentHelp = "Changes the color of buttons, links and highlights."
+    static let motionHelp = "Reduced turns off moving effects. Automatic follows your device's setting."
+    static let saved = "Saved"
     static func spiralSaved(_ n: Int) -> String { "Spiral \(n) saved" }
     static let measuring = "Measuring your spiral"
     static let measureSteps = [
@@ -211,4 +255,6 @@ enum Copy {
         "Measuring 12 things about it",
         "Comparing with the reference group",
     ]
+    static let accents = ["Blue", "Indigo", "Violet", "Teal", "Amber", "Rose", "Graphite"]
+
 }

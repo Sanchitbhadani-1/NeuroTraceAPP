@@ -120,6 +120,18 @@ enum Store {
         }
     }
 
+    static func clearPersonalData() async throws {
+        try await clearAssessments()
+        setPrefs { p in
+            p.ageChoice = prefsDefaults.ageChoice
+            p.hand = prefsDefaults.hand
+        }
+        try? FileManager.default.removeItem(at: exportsFolder)
+    }
+
+    // Where shareFile writes a file for the share sheet
+    static var exportsFolder = FileManager.default.temporaryDirectory.appendingPathComponent("exports", isDirectory: true)
+
     static let prefsKey = "neurotrace:prefs"
     static let prefsDefaults = Prefs(onboarded: false, consented: false, signedIn: false, ageChoice: nil, hand: "right", theme: "auto", accent: "blue", motion: "auto")
 

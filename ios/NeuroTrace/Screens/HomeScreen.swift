@@ -9,7 +9,12 @@ final class HomeModel {
     init(app: AppModel) { self.app = app }
 
     func login() {
-        app.go(.testing)
+        if !Store.getPrefs().consented {
+            app.go(.consent)
+            return
+        }
+        Store.setPrefs { p in p.signedIn = true }
+        app.go(.dashboard)
     }
 
     func onShow() {
@@ -29,6 +34,8 @@ struct HomeScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.palette) private var p
     @Environment(\.typo) private var typo
+    // Log in or Create an account, while that screen is open
+    @State private var account: AccountScreen.Mode?
 
     var body: some View {
         let home = app.home
@@ -45,8 +52,17 @@ struct HomeScreen: View {
             Text(Copy.pitch + " " + Copy.tracks).text(.lede).padding(.top, 12)
 
             VStack(spacing: 10) {
-                Btn(title: "Log in") { home.login() }
-                Text(Copy.loginNote).text(.sub).multilineTextAlignment(.center).fullWidth(.center)
+                if Accounts.ready {
+                    ButtonPair {
+                        Btn(title: "Log in") { account = .logIn }
+                    } second: {
+                        Btn(title: "Create an account", kind: .secondary) { account = .create }
+                    }
+                    Text(Copy.accountNote).text(.sub).multilineTextAlignment(.center).fullWidth(.center)
+                } else {
+                    Btn(title: "Log in") { home.login() }
+                    Text(Copy.loginNote).text(.sub).multilineTextAlignment(.center).fullWidth(.center)
+                }
             }
             .padding(.top, 24)
 
@@ -86,6 +102,15 @@ struct HomeScreen: View {
 
             LockNote().padding(.top, 24)
             Text(Copy.credit).text(.sub).multilineTextAlignment(.center).fullWidth(.center).padding(.top, 20)
+        }
+        .fullScreenCover(item: $account) { mode in
+            AccountScreen(mode: mode, done: {
+                account = nil
+                home.login()
+            }, close: { account = nil })
+            .environment(app)
+            .environment(\.palette, p)
+            .environment(\.typo, typo)
         }
     }
 }

@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		40AE990B308AB365004F3667 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 40AE990A308AB365004F3667 /* FirebaseAppCheck */; };
+		40AE9917308AFE8D004F3667 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 40AE9916308AFE8D004F3667 /* FirebaseAuth */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		89BB39B26795629260F23400 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -39,6 +44,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				40AE990B308AB365004F3667 /* FirebaseAppCheck in Frameworks */,
+				40AE9917308AFE8D004F3667 /* FirebaseAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,6 +105,8 @@
 			);
 			name = NeuroTrace;
 			packageProductDependencies = (
+				40AE990A308AB365004F3667 /* FirebaseAppCheck */,
+				40AE9916308AFE8D004F3667 /* FirebaseAuth */,
 			);
 			productName = NeuroTrace;
 			productReference = 62B0C260E2FC1EC24BC972A0 /* NeuroTrace.app */;
@@ -154,6 +163,9 @@
 			);
 			mainGroup = 65224C474FF6094FC9F0FD17;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				40AE9906308AB245004F3667 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 3CD534638A4741BEA322CB20 /* Products */;
 			projectDirPath = "";
@@ -470,6 +482,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		40AE9906308AB245004F3667 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.1.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		40AE990A308AB365004F3667 /* FirebaseAppCheck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 40AE9906308AB245004F3667 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAppCheck;
+		};
+		40AE9916308AFE8D004F3667 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 40AE9906308AB245004F3667 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7D1BAA4CF783C9C04FFE13C3 /* Project object */;
 }

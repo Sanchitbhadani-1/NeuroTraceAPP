@@ -69,6 +69,25 @@ struct RootView: View {
                         .transition(RootView.transition(app.transition))
                 }
 
+                // The tab bar, only on the tab screens. Along the top on an iPad, along the bottom on a phone
+                if app.onTab {
+                    if typo.tabsOnTop {
+                        VStack(spacing: 0) {
+                            TabBar(top: true, inset: insets.top)
+                            Spacer(minLength: 0)
+                        }
+                        .ignoresSafeArea(.container, edges: .top)
+                        .transition(.opacity)
+                    } else {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            TabBar(top: false, inset: insets.bottom)
+                        }
+                        .ignoresSafeArea(.container, edges: .bottom)
+                        .transition(.opacity)
+                    }
+                }
+
                 // compact title bar: the screen's h1, shown once the large title scrolls away.
                 // Not under a top tab bar, which already names the screen
                 if !(app.onTab && typo.tabsOnTop) {
@@ -120,10 +139,14 @@ struct RootView: View {
             switch screen {
             // Signed out there's only home. Then the check-in flow
             case .home: HomeScreen()
+            case .consent: ConsentScreen()
             case .about: AboutScreen()
             case .draw: DrawScreen()
             case .results: ResultsScreen()
+            // The tabs
+            case .dashboard: DashboardScreen()
             case .testing: TestingScreen()
+            case .settings: SettingsScreen()
             case .error: ErrorScreen()
             }
         } else {

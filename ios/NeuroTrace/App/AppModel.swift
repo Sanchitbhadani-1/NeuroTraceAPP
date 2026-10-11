@@ -12,6 +12,11 @@ struct Choice {
     var hand: String
 }
 
+struct ExportFile {
+    var name: String
+    var data: Data
+}
+
 // Read a file that ships inside the app, like model.json
 private func bundledFile(_ fileName: String) throws -> Data {
     let name = (fileName as NSString).deletingPathExtension, ext = (fileName as NSString).pathExtension
@@ -31,8 +36,8 @@ private func loadScoring() throws -> Scoring {
 
 // Every screen in the app. Swift checks these names when it builds, so a typo can't send someone nowhere
 enum Screen {
-    case home, about, draw, results
-    case testing, error
+    case home, consent, about, draw, results
+    case dashboard, testing, settings, error
 }
 
 // A screen plus the one extra detail some screens need, like which exercise or which check-in
@@ -49,7 +54,7 @@ enum ScreenTransition {
 @MainActor
 @Observable
 final class AppModel {
-    static let tabOrder: [Screen] = [.testing]
+    static let tabOrder: [Screen] = [.dashboard, .testing, .settings]
     static let tabs = Set(tabOrder)
     static let titled = Set(tabOrder + [.results])
 
@@ -64,6 +69,8 @@ final class AppModel {
 
     var loadError: Error? = nil
     @ObservationIgnored var scoring: Task<Scoring, Error>!
+    // Keeps the Firebase sign in watch going, when accounts are on
+    @ObservationIgnored private var accountWatch: AnyObject?
 
     var choice: Choice? = nil
     var current: AssessmentRecord? = nil
@@ -85,9 +92,12 @@ final class AppModel {
     var compactShown = false
 
     @ObservationIgnored lazy var home = HomeModel(app: self)
+    @ObservationIgnored lazy var consent = ConsentModel(app: self)
     @ObservationIgnored lazy var about = AboutModel(app: self)
     @ObservationIgnored lazy var draw = DrawModel(app: self)
     @ObservationIgnored lazy var results = ResultsModel(app: self)
+    @ObservationIgnored lazy var dashboard = DashboardModel(app: self)
+    @ObservationIgnored lazy var settings = SettingsModel(app: self)
 
     init() {
         Motion.app = self
@@ -97,6 +107,17 @@ final class AppModel {
         applyTheme(prefs.theme)
         applyAccent(prefs.accent)
         Motion.applyMotion(prefs.motion)
+
+        // With accounts on, signed out in Firebase means signed out here too. That covers a deleted
+        // account, and anyone still signed in from before accounts existed
+        accountWatch = Accounts.watch { [weak self] signedIn in
+            MainActor.assumeIsolated {
+                guard let self, !signedIn, Store.getPrefs().signedIn else { return }
+                Store.setPrefs { p in p.signedIn = false }
+                self.current = nil
+                self.go(.home)
+            }
+        }
 
         scoring = Task { try loadScoring() }
         Task {
@@ -130,7 +151,10 @@ final class AppModel {
     // Where someone actually ends up when they ask for a screen, after checking sign in, consent and so on
     func resolve(_ screen: Screen, _ param: String?) -> Screen {
         let prefs = Store.getPrefs()
+        if !prefs.signedIn { return screen == .consent ? screen : .home }
+        if screen == .home { return .dashboard }
         if screen == .error { return loadError != nil ? screen : .dashboard }
+        if !prefs.consented && screen != .consent { return .consent }
         if screen == .draw && choice == nil { return .about }
         if screen == .results && current == nil && (param ?? "").isEmpty { return .dashboard }
         return screen
@@ -173,9 +197,12 @@ final class AppModel {
     private func onShow(_ screen: Screen, _ param: String?) {
         switch screen {
         case .home: home.onShow()
+        case .consent: consent.onShow()
         case .about: about.onShow()
         case .draw: draw.onShow()
         case .results: results.onShow(param)
+        case .dashboard: dashboard.onShow()
+        case .settings: settings.onShow()
         case .testing, .error: break
         }
     }
@@ -212,4 +239,69 @@ func isoNow() -> String {
     let format = ISO8601DateFormatter()
     format.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return format.string(from: Date())
+}
+
+func jsonForExport<T: Encodable>(_ value: T, pretty: Bool) -> Data {
+    let encoder = JSONEncoder()
+    encoder.userInfo[.forExport] = true
+    encoder.outputFormatting = pretty ? [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes] : [.sortedKeys, .withoutEscapingSlashes]
+    encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+    guard let data = try? encoder.encode(value) else { return Data() }
+    let text = String(decoding: data, as: UTF8.self)
+        .replacingOccurrences(of: "\"NaN\"", with: "null")
+        .replacingOccurrences(of: "\"-Infinity\"", with: "null")
+        .replacingOccurrences(of: "\"Infinity\"", with: "null")
+    return Data(text.utf8)
+}
+
+@MainActor
+func topViewController() -> UIViewController? {
+    var top = Motion.keyWindow()?.rootViewController
+    while let next = top?.presentedViewController { top = next }
+    return top
+}
+
+// Exports are written to Store.exportsFolder for the share sheet to read. The last export is removed
+// when the next one is made, and Delete all my data removes the folder
+@MainActor
+func shareFile(_ file: ExportFile) async -> Bool {
+    let folder = Store.exportsFolder
+    let url = folder.appendingPathComponent(file.name)
+    do {
+        try? FileManager.default.removeItem(at: folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try file.data.write(to: url, options: .atomic)
+    } catch {
+        print("NeuroTrace: couldn't write the export", error)
+        return false
+    }
+    guard let top = topViewController() else { return false }
+    return await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        // Resumed only once, even if the share sheet reports back twice
+        var answered = false
+        sheet.completionWithItemsHandler = { _, completed, _, _ in
+            if answered { return }
+            answered = true
+            done.resume(returning: completed)
+        }
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = top.view
+            pop.sourceRect = CGRect(x: top.view.bounds.midX, y: top.view.bounds.maxY - 120, width: 1, height: 1)
+            pop.permittedArrowDirections = []
+        }
+        top.present(sheet, animated: true)
+    }
+}
+
+// Asks before something that can't be undone. The question goes on top and the red button says what will happen
+@MainActor
+func confirm(_ question: String, _ detail: String? = nil, action: String) async -> Bool {
+    guard let top = topViewController() else { return false }
+    return await withCheckedContinuation { (answer: CheckedContinuation<Bool, Never>) in
+        let alert = UIAlertController(title: question, message: detail, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in answer.resume(returning: false) })
+        alert.addAction(UIAlertAction(title: action, style: .destructive) { _ in answer.resume(returning: true) })
+        top.present(alert, animated: true)
+    }
 }

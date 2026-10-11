@@ -38,7 +38,7 @@ struct ErrorScreen: View {
                 .padding(.top, 16)
             Text(Copy.nothingScored).text(.lede).padding(.top, 12)
             Spacer(minLength: 0)
-            Btn(title: "Testing", kind: .secondary) { app.go(.testing) }
+            Btn(title: "Dashboard", kind: .secondary) { app.go(.dashboard) }
                 .padding(.top, 24)
         }
     }

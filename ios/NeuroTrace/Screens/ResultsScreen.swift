@@ -124,7 +124,7 @@ final class ResultsModel {
         if let id {
             Task {
                 let found = try? await Store.getAssessment(Int(id) ?? -1)
-                guard let found, found.result != nil else { return app.go(.testing) }
+                guard let found, found.result != nil else { return app.go(.dashboard) }
                 app.current = found
                 renderResults(found)
             }
@@ -539,7 +539,7 @@ struct ResultsScreen: View {
             HStack(spacing: 12) {
                 Text(m.rec.map { r in "Spiral check-in · \(whenText(r.ts))" } ?? "").text(.sub)
                 Spacer(minLength: 0)
-                BarLink(label: "Done", strong: true) { app.go(.testing) }
+                BarLink(label: "Done", strong: true) { app.go(.dashboard) }
             }
             .frame(minHeight: 44)
 
@@ -551,7 +551,7 @@ struct ResultsScreen: View {
 
             HStack(spacing: 12) {
                 Btn(title: "Check again", kind: .secondary) { app.go(.about) }
-                Btn(title: "Done") { app.go(.testing) }
+                Btn(title: "Done") { app.go(.dashboard) }
             }
             .padding(.top, 52)
         }

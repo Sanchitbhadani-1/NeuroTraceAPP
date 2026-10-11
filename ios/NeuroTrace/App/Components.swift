@@ -297,6 +297,20 @@ struct Btn: View {
     }
 }
 
+// Two buttons side by side and the same size, like at the end of the results. When the row is too narrow
+// for their words, they stack, both full width
+struct ButtonPair<First: View, Second: View>: View {
+    @ViewBuilder var first: () -> First
+    @ViewBuilder var second: () -> Second
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) { first(); second() }
+            VStack(spacing: 12) { first(); second() }
+        }
+    }
+}
+
 struct PressStyle: ButtonStyle {
     var scale: CGFloat = 0.97
     var dim = true
@@ -547,6 +561,58 @@ struct Segmented: View {
     }
 }
 
+struct CheckBox: View {
+    let checked: Bool
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        ZStack {
+            // accentFill, so the white checkmark stands out in dark mode too
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(checked ? p.accentFill.color : p.surface.color)
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(checked ? p.accentFill.color : p.ink2.color.opacity(0.6), lineWidth: 2)
+            if checked {
+                IconView(icon: .checkmark, size: 20, weight: 3).foregroundStyle(Color.white)
+            }
+        }
+        .frame(width: 26, height: 26)
+        .scaleEffect(checked ? 1 : 0.94)
+        .animation(Motion.reduced() ? nil : Theme.ease(260), value: checked)
+    }
+}
+
+struct CheckRow: View {
+    let text: String
+    // A smaller line under the text, inside the same tap target
+    var detail: String? = nil
+    let checked: Bool
+    var compact = false
+    let action: () -> Void
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: detail == nil ? .center : .top, spacing: 16) {
+                CheckBox(checked: checked)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(text).nt(.body(nil, lineHeight: 1.35)).foregroundStyle(p.ink.color).multilineTextAlignment(.leading)
+                    if let detail, !detail.isEmpty {
+                        Text(detail).text(.sub).multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: compact ? 0 : 72)
+            .padding(.vertical, compact ? 0 : 14)
+            .padding(.horizontal, compact ? 0 : 20)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(checked ? [.isSelected] : [])
+    }
+}
+
 @MainActor
 @Observable
 final class Shaker {
@@ -685,7 +751,9 @@ struct TabBar: View {
     static let topHeight: CGFloat = 64
 
     static let items: [(id: Screen, label: String, icon: Icon)] = [
+        (.dashboard, "Dashboard", .dashboard),
         (.testing, "Testing", .testing),
+        (.settings, "Settings", .settings),
     ]
 
     var body: some View {
