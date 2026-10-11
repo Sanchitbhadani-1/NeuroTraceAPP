@@ -172,7 +172,7 @@ export const HOW_STEPS = [
   "NeuroTrace measures 12 things about the line: its shape, speed, smoothness and tremor.",
   "Each measure is placed among a reference group of healthy adults.",
 ];
-export const CREDIT = "Made by Sanchit Bhadani and Aryan Modi for the 2026 Congressional App Challenge.";
+export const CREDIT = "Made by Sanchit Bhadani, Aryan Modi, and Mihir Malladi for the 2026 Congressional App Challenge.";
 
 // signed-out home, account, testing and dashboard - new copy. accounts don't
 // exist yet, so logging in is a placeholder and the copy says so.
