@@ -111,6 +111,22 @@ final class SettingsModel {
             UIAccessibility.post(notification: .announcement, argument: error.localizedDescription)
         }
     }
+
+    func exportPractice() async {
+        if busy { return }
+        busy = true
+        defer { busy = false }
+        let tries = (try? await Store.listTrainingTries()) ?? []
+        if tries.isEmpty { return Motion.toast(Copy.noPractice, ok: false) }
+        struct Body: Encodable {
+            var formatVersion = 1
+            var exportedAt: String
+            var tries: [TrainingTry]
+        }
+        let body = Body(exportedAt: isoNow(), tries: tries)
+        let file = ExportFile(name: "neurotrace-practice-\(body.exportedAt.prefix(10)).json", data: jsonForExport(body, pretty: false))
+        if await shareFile(file) { Motion.toast(Copy.exported) }
+    }
 }
 
 struct SettingsScreen: View {
@@ -132,6 +148,7 @@ struct SettingsScreen: View {
                     VStack(alignment: .leading, spacing: 0) {
                         motion(m, first: true)
                         data(m)
+                        researchers(m)
                         account(m)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -141,6 +158,7 @@ struct SettingsScreen: View {
                 appearance(m)
                 motion(m, first: false)
                 data(m)
+                researchers(m)
                 account(m)
             }
         }
@@ -237,6 +255,18 @@ struct SettingsScreen: View {
                 Text(Copy.deleteHelp).text(.sub).fixedSize(horizontal: false, vertical: true)
                 Btn(title: "Delete all my data", kind: .secondary) { Task { await m.deleteAll() } }
                 if !m.deleteStatus.isEmpty { Text(m.deleteStatus).text(.sub).fixedSize(horizontal: false, vertical: true) }
+            }
+        }
+    }
+
+    private func researchers(_ m: SettingsModel) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            section("For researchers")
+            Card {
+                Text(Copy.collectionHelp).text(.sub).fixedSize(horizontal: false, vertical: true)
+                Btn(title: "Open collection mode", kind: .secondary) { app.go(.collect) }
+                Text(Copy.practiceExportHelp).text(.sub).fixedSize(horizontal: false, vertical: true)
+                Btn(title: "Export practice tries", kind: .secondary) { Task { await m.exportPractice() } }
             }
         }
     }

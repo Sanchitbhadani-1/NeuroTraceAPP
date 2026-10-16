@@ -350,6 +350,19 @@ struct Hairline: View {
     }
 }
 
+struct Pill: View {
+    let text: Text
+    @Environment(\.palette) private var p
+
+    var body: some View {
+        text.nt(.body(15, 600, lineHeight: 1.5))
+            .foregroundStyle(p.ink.color)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .background(Capsule().fill(p.fill.color))
+    }
+}
+
 struct LockNote: View {
     @Environment(\.palette) private var p
 
@@ -753,6 +766,8 @@ struct TabBar: View {
     static let items: [(id: Screen, label: String, icon: Icon)] = [
         (.dashboard, "Dashboard", .dashboard),
         (.testing, "Testing", .testing),
+        (.training, "Training", .training),
+        (.progress, "Progress", .progress),
         (.settings, "Settings", .settings),
     ]
 

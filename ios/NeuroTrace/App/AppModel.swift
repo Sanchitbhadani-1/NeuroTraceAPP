@@ -12,6 +12,22 @@ struct Choice {
     var hand: String
 }
 
+struct CollectDetails {
+    var consent: Bool
+    var age: Int?
+    var hand: String?
+    var diagnosis: String?
+    var medicationHoursAgo: Double?
+}
+
+struct Collecting {
+    var subjectId: String
+    var session: Int
+    var trials: [Trace] = []
+    var details: CollectDetails? = nil
+    var saved: CollectedSession? = nil
+}
+
 struct ExportFile {
     var name: String
     var data: Data
@@ -36,8 +52,12 @@ private func loadScoring() throws -> Scoring {
 
 // Every screen in the app. Swift checks these names when it builds, so a typo can't send someone nowhere
 enum Screen {
-    case home, consent, about, draw, results
-    case dashboard, testing, settings, error
+    case home, consent, about, draw, results, exercise
+    case dashboard, testing, training, progress, settings, error
+    case collect, collectDetails, collectDraw, collectDone
+
+    // The collection mode screens, where a facilitator records spirals for the reference group
+    var isCollection: Bool { [.collect, .collectDetails, .collectDraw, .collectDone].contains(self) }
 }
 
 // A screen plus the one extra detail some screens need, like which exercise or which check-in
@@ -54,7 +74,7 @@ enum ScreenTransition {
 @MainActor
 @Observable
 final class AppModel {
-    static let tabOrder: [Screen] = [.dashboard, .testing, .settings]
+    static let tabOrder: [Screen] = [.dashboard, .testing, .training, .progress, .settings]
     static let tabs = Set(tabOrder)
     static let titled = Set(tabOrder + [.results])
 
@@ -74,6 +94,7 @@ final class AppModel {
 
     var choice: Choice? = nil
     var current: AssessmentRecord? = nil
+    var collecting: Collecting? = nil
 
     var previous: Screen? = nil
 
@@ -97,7 +118,11 @@ final class AppModel {
     @ObservationIgnored lazy var draw = DrawModel(app: self)
     @ObservationIgnored lazy var results = ResultsModel(app: self)
     @ObservationIgnored lazy var dashboard = DashboardModel(app: self)
+    @ObservationIgnored lazy var training = TrainingModel(app: self)
+    @ObservationIgnored lazy var exercise = ExerciseModel(app: self)
+    @ObservationIgnored lazy var progress = ProgressModel(app: self)
     @ObservationIgnored lazy var settings = SettingsModel(app: self)
+    @ObservationIgnored lazy var collect = CollectModel(app: self)
 
     init() {
         Motion.app = self
@@ -145,6 +170,7 @@ final class AppModel {
         let next = Route(screen: screen, param: param)
         if next == requested { return }
         requested = next
+        if screen != .exercise { exercise.exStop() }
         Task { await route() }
     }
 
@@ -154,8 +180,10 @@ final class AppModel {
         if !prefs.signedIn { return screen == .consent ? screen : .home }
         if screen == .home { return .dashboard }
         if screen == .error { return loadError != nil ? screen : .dashboard }
+        if screen.isCollection { return screen == .collect || collecting != nil ? screen : .collect }
         if !prefs.consented && screen != .consent { return .consent }
         if screen == .draw && choice == nil { return .about }
+        if screen == .exercise && !(Train.exercises[param ?? ""]?.built ?? false) { return .training }
         if screen == .results && current == nil && (param ?? "").isEmpty { return .dashboard }
         return screen
     }
@@ -165,7 +193,7 @@ final class AppModel {
         let target = resolve(asked.screen, asked.param)
         if target != asked.screen { return go(target) }
 
-        if asked.screen == .draw || asked.screen == .results {
+        if asked.screen == .draw || asked.screen == .results || asked.screen == .progress {
             do {
                 _ = try await scoring.value
             } catch {
@@ -202,7 +230,14 @@ final class AppModel {
         case .draw: draw.onShow()
         case .results: results.onShow(param)
         case .dashboard: dashboard.onShow()
+        case .training: training.onShow()
+        case .exercise: exercise.onShow(param ?? "")
+        case .progress: progress.onShow()
         case .settings: settings.onShow()
+        case .collect: collect.onShow()
+        case .collectDetails: collect.onShowDetails()
+        case .collectDraw: collect.onShowDraw()
+        case .collectDone: collect.onShowDone()
         case .testing, .error: break
         }
     }

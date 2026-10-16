@@ -5,6 +5,8 @@ protocol Keyed {
 }
 
 extension AssessmentRecord: Keyed {}
+extension CollectedSession: Keyed {}
+extension TrainingTry: Keyed {}
 
 enum Store {
 
@@ -19,9 +21,17 @@ enum Store {
         var motion = "auto"
     }
 
+    struct Subject: Equatable {
+        var subjectId: String
+        var sessions: Int
+        var lastAt: String
+    }
+
     static let dbName = "neurotrace"
-    static let dbVersion = 1
+    static let dbVersion = 2
     static let storeAssessments = "assessments"
+    static let storeCollected = "collected"
+    static let storeTraining = "training"
 
     static let rawKeep = 3
 
@@ -122,6 +132,8 @@ enum Store {
 
     static func clearPersonalData() async throws {
         try await clearAssessments()
+        try transaction(storeTraining, "readwrite") { (store: inout Table<TrainingTry>) in store.rows.removeAll() }
+        for key in [trainingKey] { defaults.removeObject(forKey: key) }
         setPrefs { p in
             p.ageChoice = prefsDefaults.ageChoice
             p.hand = prefsDefaults.hand
@@ -131,6 +143,81 @@ enum Store {
 
     // Where shareFile writes a file for the share sheet
     static var exportsFolder = FileManager.default.temporaryDirectory.appendingPathComponent("exports", isDirectory: true)
+
+    static func saveCollected(_ session: CollectedSession) async throws -> Int {
+        try transaction(storeCollected, "readwrite") { (store: inout Table<CollectedSession>) in
+            add(&store, session)
+        }
+    }
+
+    static func listCollected() async throws -> [CollectedSession] {
+        let all = try transaction(storeCollected, "readonly") { (store: inout Table<CollectedSession>) in store.rows }
+        return all.reversed()
+    }
+
+    static func markExported(_ ids: [Int]) async throws {
+        let idSet = Set(ids)
+        try transaction(storeCollected, "readwrite") { (store: inout Table<CollectedSession>) in
+            for i in store.rows.indices {
+                if let id = store.rows[i].id, idSet.contains(id) { store.rows[i].exported = true }
+            }
+        }
+    }
+
+    static func subjects() async throws -> [Subject] {
+        let sessions = try await listCollected()
+        var bySubject: [Subject] = []
+        for s in sessions {
+            if let entry = bySubject.firstIndex(where: { $0.subjectId == s.subjectId }) { bySubject[entry].sessions += 1 }
+            else { bySubject.append(Subject(subjectId: s.subjectId, sessions: 1, lastAt: s.collectedAt)) }
+        }
+        return bySubject
+    }
+
+    static func newSubjectId(_ existing: Set<String>) -> String {
+        var id: String
+        repeat {
+            var random = SystemRandomNumberGenerator()
+            let bytes = (0..<3).map { _ in UInt8.random(in: 0...255, using: &random) }
+            id = bytes.map { b in
+                let hex = String(b, radix: 16)
+                return hex.count < 2 ? "0" + hex : hex
+            }.joined()
+        } while existing.contains(id)
+        return id
+    }
+
+    static func saveTrainingTry(_ record: TrainingTry) async throws -> Int {
+        try transaction(storeTraining, "readwrite") { (store: inout Table<TrainingTry>) in
+            add(&store, record)
+        }
+    }
+
+    static func listTrainingTries(_ exercise: String? = nil) async throws -> [TrainingTry] {
+        let all = try transaction(storeTraining, "readonly") { (store: inout Table<TrainingTry>) in store.rows }
+        return (exercise != nil ? all.filter { r in r.exercise == exercise } : all).reversed()
+    }
+
+    static let trainingKey = "neurotrace:training"
+
+    private static func trainingStates() -> [String: Train.LevelState] {
+        do {
+            return try JSONDecoder().decode([String: Train.LevelState].self, from: Data((defaults.string(forKey: trainingKey) ?? "{}").utf8))
+        } catch {
+            return [:]
+        }
+    }
+
+    static func getTrainingState(_ exercise: String) -> Train.LevelState? { trainingStates()[exercise] }
+
+    static func setTrainingState(_ exercise: String, _ state: Train.LevelState) {
+        do {
+            var all = trainingStates()
+            all[exercise] = state
+            defaults.set(String(decoding: try JSONEncoder().encode(all), as: UTF8.self), forKey: trainingKey)
+        } catch {
+        }
+    }
 
     static let prefsKey = "neurotrace:prefs"
     static let prefsDefaults = Prefs(onboarded: false, consented: false, signedIn: false, ageChoice: nil, hand: "right", theme: "auto", accent: "blue", motion: "auto")

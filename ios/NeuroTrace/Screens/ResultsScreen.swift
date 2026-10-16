@@ -375,6 +375,18 @@ private struct DrawingCard: View {
                     .accessibilityLabel("Drawing speed over time")
                     .accessibilityAddTraits(.isImage)
             }
+        } else if let rec = m.rec, let path = checkinPath(rec), !path.t.isEmpty {
+            // An older check-in keeps only the lighter replay copy, so show that
+            ResultCard(title: "Your drawing") {
+                Canvas { ctx, size in paintPath(ctx, size, path, .infinity, p) }
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(maxWidth: 320)
+                    .fullWidth(.center)
+                    .accessibilityElement()
+                    .accessibilityLabel("Your spiral from \(whenText(rec.ts))")
+                    .accessibilityAddTraits(.isImage)
+                Text(Copy.drawingPruned).text(.sub).fixedSize(horizontal: false, vertical: true)
+            }
         } else {
             ResultCard(title: "Your drawing") {
                 Text(Copy.replayMissing).text(.sub)

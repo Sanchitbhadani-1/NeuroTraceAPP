@@ -36,6 +36,10 @@ private let todayFmt: DateFormatter = {
 final class DashboardModel {
     unowned let app: AppModel
     var records: [AssessmentRecord] = []
+    // Today's suggested exercise and its level, and whether any practice happened today
+    var focus: Practice.Focus? = nil
+    var focusLevel = ""
+    var practicedToday = false
 
     init(app: AppModel) { self.app = app }
 
@@ -47,6 +51,11 @@ final class DashboardModel {
                 print("NeuroTrace: couldn't read history", error)
                 records = []
             }
+            let tries = (try? await Store.listTrainingTries()) ?? []
+            let next = Practice.focus(latest: records.first, lastPracticed: Practice.lastPracticed(tries))
+            focusLevel = Copy.levelShort((Store.getTrainingState(next.exercise)?.level ?? 0) + 1)
+            focus = next
+            practicedToday = Practice.doneToday(tries.map { t in t.ts }, now: Date())
         }
     }
 
@@ -130,7 +139,20 @@ struct DashboardScreen: View {
             H1(text: "Today", top: typo.tabsOnTop ? 0 : 16)
             Text(todayFmt.string(from: Date())).text(.lede).padding(.top, 6)
 
-            checkin(m).padding(.top, 24)
+            if wide {
+                HStack(alignment: .top, spacing: 24) {
+                    checkin(m)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 16) {
+                        exercise(m)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.top, 24)
+            } else {
+                checkin(m).padding(.top, 24)
+                exercise(m).padding(.top, 16)
+            }
             Spacer(minLength: 0)
             LockNote().padding(.top, 24)
         }
@@ -191,6 +213,29 @@ struct DashboardScreen: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Spiral check-in")
+        }
+    }
+
+    // Today's exercise from Training, with a checkmark once there's been practice today
+    @ViewBuilder
+    private func exercise(_ m: DashboardModel) -> some View {
+        if let focus = m.focus {
+            Card {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Today's exercise").text(.cardTitle)
+                        Text("\(Copy.exerciseNames[focus.exercise] ?? focus.exercise), \(m.focusLevel)").text(.sub)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    if m.practicedToday { DoneCheckmark() }
+                }
+                Text(m.practicedToday ? Copy.practicedToday : focusReason(focus)).text(.body).fixedSize(horizontal: false, vertical: true)
+                Btn(title: m.practicedToday ? "Practice again" : "Start", kind: m.practicedToday ? .secondary : .primary) {
+                    app.training.open(focus.exercise)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Today's exercise")
         }
     }
 }

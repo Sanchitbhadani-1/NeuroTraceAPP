@@ -143,11 +143,19 @@ struct RootView: View {
             case .about: AboutScreen()
             case .draw: DrawScreen()
             case .results: ResultsScreen()
+            case .exercise: ExerciseScreen()
             // The tabs
             case .dashboard: DashboardScreen()
             case .testing: TestingScreen()
+            case .training: TrainingScreen()
+            case .progress: ProgressScreen()
             case .settings: SettingsScreen()
             case .error: ErrorScreen()
+            // Collection mode, run by a facilitator on the iPad
+            case .collect: CollectScreen()
+            case .collectDetails: CollectDetailsScreen()
+            case .collectDraw: CollectDrawScreen()
+            case .collectDone: CollectDoneScreen()
             }
         } else {
             Color.clear

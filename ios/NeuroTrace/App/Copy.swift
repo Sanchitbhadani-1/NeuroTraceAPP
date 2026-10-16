@@ -132,6 +132,7 @@ enum Copy {
     static let handHelp =
         "The hand you will draw with. Use the same one each time so your check-ins compare fairly. To compare your two hands, do one check-in with each."
     static let checkinBlurb = "About two minutes. Trace three spirals with your finger or an Apple Pencil."
+    static let historyEmpty = "Your results will appear here after your first check-in. They stay on this device."
     static func drawInstruction(_ hand: String?) -> String {
         let which = hand == "left" || hand == "right" ? "Use your \(hand ?? "") hand. " : ""
         return which + "Start at the dot in the middle and follow the gray line outward, at a comfortable pace. " +
@@ -148,6 +149,18 @@ enum Copy {
     static let spiralStillOff =
         "This spiral still couldn't be measured. Take as long as you need, start at the dot in the middle and stay close " +
         "to the gray line. You can also tap Cancel and try another time."
+    static let collectIntro =
+        "Three spirals per participant, for the device-matched reference. No results are calculated or " +
+        "shown in this mode."
+    static let newParticipant =
+        "A random ID is made for them. Write it on their signed consent form — names are never stored."
+    static let returningBlurb = "Pick up an ID already on this iPad."
+    static let collectDrawInstruction =
+        "Start at the dot in the middle and trace outward at a comfortable pace. Lifting the pencil is " +
+        "fine — keep going from where you stopped."
+    static let sessionSaved =
+        "Three spirals are stored on this iPad. Thank the participant — no results are shown in collection mode."
+
     static let nothingScored = "Nothing was scored."
     static let resizeCleared = "The screen changed size, so this spiral was cleared. Please draw it again."
 
@@ -193,6 +206,9 @@ enum Copy {
     static let filteredLegend =
         "The same line smoothed (100 Hz, 15 Hz low-pass) — the version every measure is taken from."
     static let speedCaption = "From your first touch on the left to your last on the right."
+    static let drawingPruned =
+        "A lighter copy of your drawing. The full recording, with the smoothed line and the speed chart, is kept " +
+        "for your three most recent check-ins."
     static let resultSummary = "This is a measurement of how you drew today, not a diagnosis."
 
     static let settingsDetailsHelp = "Used to choose who you are compared with. Changes apply to your next check-in."
@@ -205,6 +221,7 @@ enum Copy {
     static let deleteConfirmDetail = "This can't be undone."
     static let deleted = "All your data was deleted."
     static let deleteFailed = "Couldn't delete everything. Try again."
+    static let collectionHelp = "For the research team. Records spirals for the reference group and never shows results."
     static let howSteps = [
         "Trace a spiral on the screen with your finger or an Apple Pencil.",
         "NeuroTrace measures 12 things about the line: its shape, speed, smoothness and tremor.",
@@ -243,7 +260,171 @@ enum Copy {
     static let testingBlurb =
         "Short tests that measure how you move. Use the same hand on the same device each time, so your results compare fairly."
 
+    static let practicedToday = "You've already practiced today. Another try is fine whenever you feel like it."
+    static let trainingBlurb = "Short practice exercises. Each one gets a little harder once you've mastered its current level."
+    static func trainingWhy(_ measure: String, _ when: String) -> String {
+        "Why this one: \(lowerFirst(measures[measure]?.name ?? measure)) stood out most in your \(when) check-in."
+    }
+    // Only the first letter, so names like "Tremor, 4–6 Hz" keep their Hz
+    private static func lowerFirst(_ s: String) -> String { s.prefix(1).lowercased() + s.dropFirst() }
+    static let focusNothingStoodOut =
+        "Nothing in your latest check-in points to one exercise, so this is the one you practiced least recently."
+    static let focusNoCheckin =
+        "Do a spiral check-in and NeuroTrace will pick the exercise that fits your results. Until then, it's the one you practiced least recently."
+    static func weekCount(_ practiced: Int, _ soFar: Int) -> String { "\(practiced) of \(soFar) \(soFar == 1 ? "day" : "days") so far" }
+    static func weekSpoken(_ practiced: Int, _ soFar: Int) -> String {
+        practiced == 0 ? "No practice yet this week" : "Practiced on \(practiced) of the \(soFar) \(soFar == 1 ? "day" : "days") so far this week"
+    }
+
+    static let exerciseNames = [
+        "big-writing": "Big writing", "rhythm": "Rhythm", "steady-tracing": "Steady tracing", "hand-skills": "Hand skills",
+    ]
+    static let instructions = [
+        "big-writing": "Write a row of tall loops, like a cursive l, from left to right. Make each loop touch the dashed line.",
+        "steady-tracing":
+            "Watch the dot trace the spiral, picture yourself drawing it, then trace it yourself from the middle out. " +
+            "At higher levels the guide gets fainter.",
+        "rhythm": "Turn your sound on. After three clicks, a dot moves along the wave, one stroke per click. Keep your pen with the dot.",
+        "hand-skills": "Circles appear one at a time and shrink away. Tap each one before it disappears.",
+    ]
+    static let padLabels = [
+        "big-writing": "Writing area with a baseline and a dashed target line",
+        "steady-tracing": "Tracing area with a spiral guide",
+        "rhythm": "Tracing area with a wave and a dot to follow",
+    ]
+    static let watch = "Watch the dot trace the spiral."
+    static let look = "Look at the spiral, from the middle out."
+    static func imagine(_ n: Int) -> String { "Now picture yourself drawing it. \(n)" }
+    static let traceNow = "Your turn. Trace it from the middle out."
+    static let rhythmReady = "Tap Start, then put your pen on the dot before it moves."
+    static func getReady(_ n: Int) -> String { "Get ready. \(n)" }
+    static let follow = "Follow the dot."
+    static let rhythmEnd = "That's the end of the wave. Tap Done."
+    static let targetsReady = "Tap Start when you're ready."
+    static func circleOf(_ n: Int, _ of: Int) -> String { "Circle \(n) of \(of)" }
+    static let traceTooShort = "Too little of the spiral to count. Trace it from the middle all the way out."
+    static let rhythmTooShort = "Too little of the wave to count. Follow the dot all the way to the end."
+    static let comingSoon = "Coming soon"
+    static let notStarted = "Not started"
+    static let lastChange = ["up": "Went up last time", "down": "Went down last time"]
+    static func levelShort(_ n: Int) -> String { "Level \(n)" }
+    static func levelOf(_ n: Int, _ of: Int) -> String { "Level \(n) of \(of)" }
+    static func hitsSoFar(_ hits: Int, _ need: Int) -> String { "Hits at this level: \(hits) of \(need)" }
+    static func missesInARow(_ misses: Int, _ limit: Int) -> String { "Misses in a row: \(misses) of \(limit)" }
+    static let topLevel = "Top level. Keep practicing to hold it."
+    static let targetLabel = "Reach this line"
+    static let tooFewLoops = "Too few loops to count. Write at least 4 tall loops across the row."
+    static let verdictHit = "Hit"
+    static let verdictMiss = "Not yet"
+    static let verdictNotCounted = [
+        "big-writing": "Reached the line, but not counted",
+        "steady-tracing": "Accurate, but not counted",
+        "rhythm": "On the beat, but not counted",
+    ]
+    static let slowerNotes = [
+        "big-writing": "Your pace dropped compared with your recent tries. Keep your usual rhythm as you write bigger.",
+        "steady-tracing": "Your pace dropped compared with your recent tries. Keep your usual pace as the guide fades.",
+    ]
+    static let shakierNotes = [
+        "big-writing": "Your writing was less smooth than in your recent tries. Keep the loops smooth as you write bigger.",
+        "steady-tracing": "Your line was less smooth than in your recent tries. Keep it smooth as the guide fades.",
+        "rhythm": "Your line was less smooth than in your recent tries. Keep it smooth as you follow the dot.",
+    ]
+    static let measureNames = [
+        "size": "Size", "accuracy": "Accuracy", "pace": "Pace", "smoothness": "Smoothness", "coverage": "How much you traced",
+        "timing": "Keeping up", "caught": "Caught", "reaction": "Speed", "extra": "Extra taps",
+    ]
+    static func reachedLine(_ reached: Double, _ loops: Double, _ open: Double = 0, _ below: Double = 0) -> String {
+        let kind = (open != 0 && !open.isNaN) || (below != 0 && !below.isNaN) ? "letters" : "loops"
+        var message = "\(num(reached)) of \(num(loops)) \(kind) reached the line."
+
+        if open != 0 && !open.isNaN {
+            let shape = open == 1 ? "was a spike or bump" : "were spikes or bumps"
+            let loop = open == 1 ? "a loop" : "loops"
+            message += " \(num(open)) \(shape), not \(loop), so \(dontCount(open)) count."
+        }
+
+        if below != 0 && !below.isNaN {
+            message += " \(num(below)) started or ended well below the baseline, so \(dontCount(below)) count."
+        }
+
+        return message + " Filled dots on your writing mark the ones that reached it."
+    }
+    static let practiceExportHelp = "Saves every practice try on this device as one file, to help tune the exercises."
+    static let noPractice = "No practice tries on this device yet"
+    static func sizeSentence(_ size: Double, _ shrink: Double) -> String {
+        "Your loops averaged \(num(pct(size)))% of the target height." +
+            (shrink.isFinite && abs(shrink) >= 0.05
+                ? " The last loops in the row were \(num(pct(shrink)))% \(shrink < 0 ? "smaller" : "bigger") than the first."
+                : "")
+    }
+    static func paceSentence(_ pace: Double, _ vs: Double?) -> String {
+        "\(toFixed(pace, 1)) loops a second" +
+            (vs == nil ? ". Nothing to compare with yet."
+                : abs(vs!) < 0.05 ? ", about the same as your recent tries."
+                : ", \(num(pct(vs!)))% \(vs! > 0 ? "faster" : "slower") than your recent tries.")
+    }
+    static func smoothSentence(_ vs: Double?) -> String {
+        vs == nil ? "Nothing to compare with yet."
+            : abs(vs!) < 0.05 ? "About as smooth as your recent tries."
+            : vs! > 0 ? "Smoother than your recent tries." : "Less smooth than your recent tries."
+    }
+    static func paceVs(_ vs: Double?) -> String {
+        vs == nil ? "Nothing to compare with yet."
+            : abs(vs!) < 0.05 ? "About the same pace as your recent tries."
+            : "\(num(pct(vs!)))% \(vs! > 0 ? "faster" : "slower") than your recent tries."
+    }
+    private static func share(_ x: Double) -> String { x < 0.005 ? "less than 1" : num(pct(x)) }
+    static func tracingAccuracy(_ acc: Double, _ limit: Double) -> String {
+        "On average your line was \(share(acc))% of the spiral's size away from the guide. A hit needs \(num(pct(limit)))% or less."
+    }
+    static func tracedShare(_ cover: Double, _ what: String) -> String { "You traced \(num(pct(cover)))% of the \(what)." }
+    static func keptUp(_ lag: Double, _ lead: Double, _ limit: Double) -> String {
+        lag < 0.15 ? "You kept up with the dot."
+            : "On average you were \(toFixed(lag, 1)) beats from the dot, mostly \(lead < 0 ? "behind" : "ahead of") it. " +
+              "A hit needs \(num(limit)) or less."
+    }
+    static func waveNear(_ near: Double, _ limit: Double) -> String {
+        "On average your line was \(share(near))% of the wave's height away from it. A hit needs \(num(pct(limit)))% or less."
+    }
+    static func caughtSentence(_ caught: Double, _ of: Double, _ need: Double) -> String {
+        "You caught \(num(caught)) of \(num(of)) circles. A hit needs \(num(need))."
+    }
+    static func reactionSentence(_ ms: Double) -> String {
+        ms.isFinite ? "You typically tapped a circle \(toFixed(ms / 1000, 2)) seconds after it appeared." : "No circles caught yet."
+    }
+    static func extraTapsSentence(_ n: Double, _ allowed: Double) -> String {
+        (n == 0 ? "Every tap landed on a circle." : "\(num(n)) tap\(n == 1 ? "" : "s") missed every circle.") +
+            (allowed > 0 ? " A hit allows \(num(allowed)) or fewer." : " A hit allows none.")
+    }
+    static let levelUp: [String: (Int) -> String] = [
+        "big-writing": { n in "Level up. Level \(n) has a taller target line." },
+        "steady-tracing": { n in "Level up. Level \(n)'s guide is fainter." },
+        "rhythm": { n in "Level up. Level \(n) has a faster beat." },
+        "hand-skills": { n in "Level up. Level \(n)'s circles start smaller." },
+    ]
+    private static func downTo(_ n: Int) -> String { "Three misses in a row, so you're back to Level \(n)." }
+    static let levelDown: [String: (Int) -> String] = [
+        "big-writing": { n in "\(downTo(n)) The target line is a little lower." },
+        "steady-tracing": { n in "\(downTo(n)) The guide is a little clearer." },
+        "rhythm": { n in "\(downTo(n)) The beat is a little slower." },
+        "hand-skills": { n in "\(downTo(n)) The circles start a little bigger." },
+    ]
+    static func tooHardToast(_ n: Int) -> String { "Moved down to Level \(n)" }
+    static let tooHardLowest = "You're already on Level 1, the easiest level."
+    static let notBuilt = "Not built yet"
+
+    static let progressBlurb = "Your first check-in next to your latest, measure by measure."
+    static let progressEmpty = "Do two check-ins with the same hand and the same pen or finger to compare them here."
+    static let progressCaption =
+        "Both check-ins are placed against the same reference group, so the comparison is fair. Single check-ins vary " +
+        "from day to day, so a change between two of them is one reading, not a trend."
+    private static let inputPhrase = ["pencil": "an Apple Pencil", "touch": "a finger", "mouse": "a mouse"]
+    static func drawnIn(_ seconds: Double) -> String { "Drawn in \(toFixed(seconds, 1)) seconds" }
     static let replayMissing = "No drawing was kept for this check-in."
+    static func progressSetup(_ hand: String, _ inputType: String?) -> String {
+        "Comparing check-ins drawn with your \(hand) hand, using \(inputType.flatMap { inputPhrase[$0] } ?? "the same input")."
+    }
     static let accentHelp = "Changes the color of buttons, links and highlights."
     static let motionHelp = "Reduced turns off moving effects. Automatic follows your device's setting."
     static let saved = "Saved"
@@ -257,4 +438,19 @@ enum Copy {
     ]
     static let accents = ["Blue", "Indigo", "Violet", "Teal", "Amber", "Rose", "Graphite"]
 
+    static let collectConsent = "Written consent for this participant is on file."
+    static let diagnosisNote =
+        "Only participants with no diagnosis are added to the healthy reference. Everyone else is kept, labeled and left out of it."
+    static let medHelp = "A rough answer is fine. Leave it empty if unsure."
+    static let noParticipants = "No participants on this iPad yet."
+    static let unexportedHelp = "Sessions are only stored on this iPad. Export them before deleting the app."
+    static let exported = "Exported"
+    static let leaveSession = "Leave this session?"
+    static let leaveSessionDetail = "The spirals drawn so far will be discarded."
+    static let diagnoses = ["none": "None", "parkinsons": "Parkinson\u{2019}s", "essential_tremor": "Essential tremor", "other": "Other"]
+    static func bracketNote(_ age: Int) -> String {
+        age < 60 ? "Counts toward the under-60 reference group." :
+        age >= 80 ? "Counts toward the 80+ reference group." :
+        "Counts toward the \(Int(floor(Double(age) / 10)) * 10)s reference group."
+    }
 }

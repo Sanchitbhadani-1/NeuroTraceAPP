@@ -131,3 +131,111 @@ struct AssessmentRecord: Codable, Equatable {
     // The scoring result, defined in Score.swift
     var result: Score.Result?
 }
+
+// Create one point of a collection-mode drawing. Only t, x, y and pressure go into the research file
+struct CollectedSample: Codable, Equatable {
+    var t: Double
+    var x: Double
+    var y: Double
+    var pressure: Double
+}
+
+// Create one of the three spirals a participant draws in collection mode
+struct CollectedTrial: Codable, Equatable {
+    var trial: Int
+    var task: String
+    var samples: [CollectedSample]
+}
+
+// Create one collection-mode session: the participant's details and their three spirals
+struct CollectedSession: Codable, Equatable {
+    var id: Int?
+    // The file format's version number, so the Python pipeline knows how to read it
+    var formatVersion: Int
+    // A random 6-character participant id. Names are never stored
+    var subjectId: String
+    // Which visit this is for the participant (1, 2, ...)
+    var session: Int
+    var collectedAt: String
+    var deviceLabel: String
+    var inputType: String?
+    var hand: String
+    var age: Int?
+    var diagnosis: String
+    var medicationHoursAgo: Double?
+    var consent: Bool
+    var trials: [CollectedTrial]
+    // Whether this session has been exported off the iPad yet
+    var exported: Bool
+
+    // Rewrite the encoding process. When exporting, leave out id and exported, since they only matter on this iPad
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        let forExport = encoder.userInfo[.forExport] as? Bool == true
+        if !forExport { try c.encode(id, forKey: .id) }
+        try c.encode(formatVersion, forKey: .formatVersion)
+        try c.encode(subjectId, forKey: .subjectId)
+        try c.encode(session, forKey: .session)
+        try c.encode(collectedAt, forKey: .collectedAt)
+        try c.encode(deviceLabel, forKey: .deviceLabel)
+        // encode writes null for a missing optional (like inputType or age), so the key is always in the file
+        try c.encode(inputType, forKey: .inputType)
+        try c.encode(hand, forKey: .hand)
+        try c.encode(age, forKey: .age)
+        try c.encode(diagnosis, forKey: .diagnosis)
+        try c.encode(medicationHoursAgo, forKey: .medicationHoursAgo)
+        try c.encode(consent, forKey: .consent)
+        try c.encode(trials, forKey: .trials)
+        if !forExport { try c.encode(exported, forKey: .exported) }
+    }
+}
+
+// Create one practice exercise try and how it went
+struct TrainingTry: Codable, Equatable {
+    var id: Int?
+    var ts: Int
+    // Which exercise: "big-writing", "steady-tracing", "rhythm" or "hand-skills"
+    var exercise: String
+    var level: Int
+    // The level's setting: target height, guide strength, beats per minute or circle size, depending on the exercise
+    var target: Double
+    // Always true here, since only tries long enough to judge get saved
+    var counted: Bool
+    // A hit means it reached the target without being slower or shakier than your recent tries
+    var hit: Bool
+    var reachedTarget: Bool
+    var slower: Bool
+    var shakier: Bool
+    var measures: [String: Double]
+    // How this try compared with your recent tries (pace and smoothness), defined in Train.swift
+    var vs: Train.Vs
+    var inputType: String?
+    // Replay copy of the drawing (nil for hand skills, which is tapping, not drawing)
+    var path: ReplayPath?
+    // Sizes and positions on screen during the try, like the pad's width and height and where the target line was
+    var geometry: [String: Double]?
+    // Hand skills only: whether each circle was caught and how fast, defined in Train.swift
+    var results: [Train.TargetResult]?
+
+    // Rewrite the encoding process so the saved JSON matches the web app's exactly
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(ts, forKey: .ts)
+        try c.encode(exercise, forKey: .exercise)
+        try c.encode(level, forKey: .level)
+        try c.encode(target, forKey: .target)
+        try c.encode(counted, forKey: .counted)
+        try c.encode(hit, forKey: .hit)
+        try c.encode(reachedTarget, forKey: .reachedTarget)
+        try c.encode(slower, forKey: .slower)
+        try c.encode(shakier, forKey: .shakier)
+        try c.encode(measures, forKey: .measures)
+        try c.encode(vs, forKey: .vs)
+        try c.encode(inputType, forKey: .inputType)
+        // encodeIfPresent leaves the key out completely when it's nil, instead of writing null
+        try c.encodeIfPresent(path, forKey: .path)
+        try c.encodeIfPresent(geometry, forKey: .geometry)
+        try c.encodeIfPresent(results, forKey: .results)
+    }
+}
