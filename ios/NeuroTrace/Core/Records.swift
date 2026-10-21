@@ -132,6 +132,14 @@ struct AssessmentRecord: Codable, Equatable {
     var result: Score.Result?
 }
 
+// One medication dose the person logged
+struct Dose: Codable, Equatable {
+    // Store gives each dose an id when it's saved, so it's nil before that
+    var id: Int? = nil
+    // When the dose was taken, in milliseconds since 1970 like a check-in
+    var ts: Int
+}
+
 // Create one point of a collection-mode drawing. Only t, x, y and pressure go into the research file
 struct CollectedSample: Codable, Equatable {
     var t: Double

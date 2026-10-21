@@ -7,6 +7,7 @@ protocol Keyed {
 extension AssessmentRecord: Keyed {}
 extension CollectedSession: Keyed {}
 extension TrainingTry: Keyed {}
+extension Dose: Keyed {}
 
 enum Store {
 
@@ -21,6 +22,12 @@ enum Store {
         var motion = "auto"
     }
 
+    // The medicine's name and the schedule the person typed in
+    struct Medication: Codable, Equatable {
+        var name = ""
+        var schedule = ""
+    }
+
     struct Subject: Equatable {
         var subjectId: String
         var sessions: Int
@@ -28,10 +35,11 @@ enum Store {
     }
 
     static let dbName = "neurotrace"
-    static let dbVersion = 2
+    static let dbVersion = 3
     static let storeAssessments = "assessments"
     static let storeCollected = "collected"
     static let storeTraining = "training"
+    static let storeDoses = "doses"
 
     static let rawKeep = 3
 
@@ -133,7 +141,9 @@ enum Store {
     static func clearPersonalData() async throws {
         try await clearAssessments()
         try transaction(storeTraining, "readwrite") { (store: inout Table<TrainingTry>) in store.rows.removeAll() }
-        for key in [trainingKey] { defaults.removeObject(forKey: key) }
+        try transaction(storeDoses, "readwrite") { (store: inout Table<Dose>) in store.rows.removeAll() }
+        for key in [trainingKey, medicationKey] { defaults.removeObject(forKey: key) }
+        clearTapTests()
         setPrefs { p in
             p.ageChoice = prefsDefaults.ageChoice
             p.hand = prefsDefaults.hand
@@ -196,6 +206,37 @@ enum Store {
     static func listTrainingTries(_ exercise: String? = nil) async throws -> [TrainingTry] {
         let all = try transaction(storeTraining, "readonly") { (store: inout Table<TrainingTry>) in store.rows }
         return (exercise != nil ? all.filter { r in r.exercise == exercise } : all).reversed()
+    }
+
+    // Save one logged dose
+    static func saveDose(_ dose: Dose) async throws -> Int {
+        try transaction(storeDoses, "readwrite") { (store: inout Table<Dose>) in
+            add(&store, dose)
+        }
+    }
+
+    // Every logged dose, newest first. Doses can be logged for an earlier time, so this sorts by time taken
+    static func listDoses() async throws -> [Dose] {
+        let all = try transaction(storeDoses, "readonly") { (store: inout Table<Dose>) in store.rows }
+        return all.sorted { a, b in a.ts != b.ts ? a.ts > b.ts : (a.id ?? 0) > (b.id ?? 0) }
+    }
+
+    static func deleteDose(_ id: Int) async throws {
+        try transaction(storeDoses, "readwrite") { (store: inout Table<Dose>) in
+            store.rows.removeAll { d in d.id == id }
+        }
+    }
+
+    static let medicationKey = "neurotrace:medication"
+
+    static func getMedication() -> Medication {
+        guard let raw = defaults.string(forKey: medicationKey) else { return Medication() }
+        return (try? JSONDecoder().decode(Medication.self, from: Data(raw.utf8))) ?? Medication()
+    }
+
+    static func setMedication(_ medication: Medication) {
+        guard let data = try? JSONEncoder().encode(medication) else { return }
+        defaults.set(String(decoding: data, as: UTF8.self), forKey: medicationKey)
     }
 
     static let trainingKey = "neurotrace:training"

@@ -44,6 +44,8 @@ final class DashboardModel {
     init(app: AppModel) { self.app = app }
 
     func onShow() {
+        // The dose button here shares Care's medicine and last dose
+        app.care.refresh()
         Task {
             do {
                 records = try await Store.listAssessments()
@@ -145,6 +147,7 @@ struct DashboardScreen: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .leading, spacing: 16) {
                         exercise(m)
+                        DoseCard(m: app.care, full: false)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -152,6 +155,7 @@ struct DashboardScreen: View {
             } else {
                 checkin(m).padding(.top, 24)
                 exercise(m).padding(.top, 16)
+                DoseCard(m: app.care, full: false).padding(.top, 16)
             }
             Spacer(minLength: 0)
             LockNote().padding(.top, 24)

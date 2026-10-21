@@ -260,7 +260,90 @@ enum Copy {
     static let testingBlurb =
         "Short tests that measure how you move. Use the same hand on the same device each time, so your results compare fairly."
 
+    // Finger tapping, from Aryan's tapping test
+    static let tapBlurb = "Tap your index finger and thumb together in front of the camera. It takes about 15 seconds."
+    static let tapTips = "Prop the iPad up, sit about an arm's length away, palm facing the camera, in good light."
+    static let tapGo = "Tap your index finger and thumb together, as fast and as wide as you can."
+    static let tapNoCamera = "NeuroTrace can't use the camera. You can allow it in Settings."
+    static let tapNoFrontCamera = "This device has no front camera NeuroTrace can use, so the tapping test can't run here."
+    // For iPads too old for Apple's hand tracking, like iPad (7th generation)
+    static let tapOldIPadTitle = "This iPad may be too old for finger tapping"
+    static let tapOldIPad = "Apple's hand tracking doesn't run well enough on older iPads to count taps. It needs iPad (8th generation), " +
+        "iPad Air (3rd generation), iPad mini (5th generation), iPad Pro (2018) or newer."
+    static let tapTooFew = "Fewer than 5 taps were found. Try again with your whole hand in view and good light."
+    static let tapTooSlow =
+        "The camera couldn't follow your hand quickly enough to count taps, so this test wasn't kept. Try again in " +
+        "brighter light, with other apps closed."
+    static let tapNotDiagnosis = "This is a measurement of how you tapped today, not a diagnosis."
+    static func tapLooksLike(_ seen: String) -> String { "That looks like your \(seen) hand" }
+    static func tapWrongHand(_ seen: String, _ picked: String) -> String {
+        "That looked like your \(seen) hand, but the \(picked) hand was picked, so this test wasn't saved. Pick the hand " +
+            "you're using and try again."
+    }
+    static let tapOnDevice = "The camera picture stays on this iPad and is never saved. Only the numbers are kept."
+
+    // previous: this hand's earlier counted tries, newest first
+    static func tapSentences(_ r: TapResult, previous: [TapResult]) -> [String] {
+        guard r.counted, let duration = r.duration, let rate = r.rate else { return [tapTooFew] }
+        var out = ["\(r.taps) taps in \(String(format: "%.1f", duration)) seconds: \(String(format: "%.1f", rate)) taps per second."]
+        if let change = r.openingChange {
+            let pct = Int((abs(change) * 100).rounded())
+            out.append(pct < 10
+                ? "Your finger opening stayed about the same size."
+                : "Your finger opening got \(pct)% \(change < 0 ? "smaller" : "larger") from your first taps to your last.")
+        }
+        if r.pauses > 0 {
+            out.append("\(r.pauses) \(r.pauses == 1 ? "pause that was" : "pauses that were") longer than your usual rhythm.")
+        }
+        let rates = previous.compactMap { p in p.rate }.prefix(3)
+        if !rates.isEmpty {
+            let ratio = rate / (rates.reduce(0, +) / Double(rates.count))
+            let word = ratio > 1.1 ? "faster" : ratio < 0.9 ? "slower" : "about the same"
+            out.append("Compared with your last \(rates.count == 1 ? "try" : "\(rates.count) tries") with this hand: \(word).")
+        }
+        return out
+    }
+
+    // What VoiceOver reads for the finger opening chart
+    static func tapChartLabel(_ r: TapResult) -> String {
+        guard let first = r.openings.first, let last = r.openings.last else { return "Finger opening at each tap" }
+        return "Finger opening at each of \(r.openings.count) taps, from \(String(format: "%.2f", first)) at the first tap to \(String(format: "%.2f", last)) at the last"
+    }
+
+    static let careBlurb = "Your medication, a summary for your doctor, and ideas to make your home easier to move around in."
     static let practicedToday = "You've already practiced today. Another try is fine whenever you feel like it."
+    static let medBlurb = "The medicines you take, with the dose and when you take them."
+    static let medCardBlurb =
+        "Log each dose as you take it. After a few check-ins, NeuroTrace shows how your drawing changes in the hours after a dose."
+    static let medLede =
+        "Log your doses here. Each check-in is matched to the dose before it, to show when your drawing tends to be at its best."
+    static let noDoses = "No doses logged yet."
+    static let doseLogged = "Dose logged"
+    static let doseTwice = "Dose already logged"
+    static let doseNotSaved = "Couldn't save the dose"
+    static let doseNotRemoved = "Couldn't remove the dose"
+    static let logDoseHelp = "Forgot to log one? Set the time you took it."
+    static let removeDoseConfirm = "Remove this dose?"
+    static func recentDoses(_ shown: Int) -> String { "Your \(shown) most recent doses." }
+    static let timingCaption = "Each check-in is grouped by how long after a dose you drew it. Longer bars mean better drawing."
+    static let timingHowTo =
+        "Only check-ins within 12 hours of a logged dose count. Check in at different times after a dose, " +
+        "with the same hand and the same pen or finger."
+    static let timingCaution =
+        "This shows a pattern in your drawing, not how well your medicine works. Don't change when you take " +
+        "your medicine without talking to your doctor."
+    static let timingLabels = ["spiral_mean_speed": "Speed", "spiral_ldlj": "Smoothness", "spiral_mean_deviation": "Wobble", "spiral_tremor_4_6": "Tremor"]
+    static let timingSpread = "No time window has two check-ins in it yet. Try checking in twice at about the same time after a dose."
+    static func timingSoFar(_ n: Int) -> String { "\(min(n, Meds.minCheckins)) of \(Meds.minCheckins) check-ins so far" }
+    static func hoursAfter(_ from: Double, _ to: Double) -> String { "\(num(from)) to \(num(to)) \(to == 1 ? "hour" : "hours")" }
+    static func bestTime(_ from: Double, _ to: Double) -> String { "So far, best \(hoursAfter(from, to)) after a dose" }
+    static func checkinCount(_ n: Int) -> String { n == 0 ? "No check-ins" : n == 1 ? "1 check-in" : "\(n) check-ins" }
+    static func betterThan(_ better: Double) -> String { "Better than \(num(jsRound(better * 100)))% of the reference group" }
+    static func bestDetail(_ key: String, _ better: Double, _ n: Int) -> String {
+        "In that window, your \((timingLabels[key] ?? "drawing").lowercased()) was typically better than \(num(jsRound(better * 100)))% " +
+        "of the reference group, going by \(checkinCount(n).lowercased())."
+    }
+
     static let trainingBlurb = "Short practice exercises. Each one gets a little harder once you've mastered its current level."
     static func trainingWhy(_ measure: String, _ when: String) -> String {
         "Why this one: \(lowerFirst(measures[measure]?.name ?? measure)) stood out most in your \(when) check-in."
@@ -334,6 +417,8 @@ enum Copy {
         "size": "Size", "accuracy": "Accuracy", "pace": "Pace", "smoothness": "Smoothness", "coverage": "How much you traced",
         "timing": "Keeping up", "caught": "Caught", "reaction": "Speed", "extra": "Extra taps",
     ]
+    private static func pct(_ x: Double) -> Double { jsRound(abs(x) * 100) }
+    private static func dontCount(_ n: Double) -> String { n == 1 ? "it doesn't" : "they don't" }
     static func reachedLine(_ reached: Double, _ loops: Double, _ open: Double = 0, _ below: Double = 0) -> String {
         let kind = (open != 0 && !open.isNaN) || (below != 0 && !below.isNaN) ? "letters" : "loops"
         var message = "\(num(reached)) of \(num(loops)) \(kind) reached the line."
@@ -425,6 +510,19 @@ enum Copy {
     static func progressSetup(_ hand: String, _ inputType: String?) -> String {
         "Comparing check-ins drawn with your \(hand) hand, using \(inputType.flatMap { inputPhrase[$0] } ?? "the same input")."
     }
+    static func timingSetup(_ hand: String, _ inputType: String?) -> String {
+        "Counts check-ins drawn with your \(hand) hand and \(inputType.flatMap { inputPhrase[$0] } ?? "the same input")."
+    }
+    static let handsEmpty =
+        "Do one check-in with each hand, with the same pen or finger, within a week of each other. They'll show up here side by side."
+    static func handsSetup(_ inputType: String?) -> String {
+        "Your newest left hand and right hand check-ins, both drawn with \(inputType.flatMap { inputPhrase[$0] } ?? "the same input"), " +
+        "within a week of each other."
+    }
+    static let handsCaption =
+        "Most people draw a little differently with each hand, especially the one they don't write with. A gap here isn't a " +
+        "warning sign on its own. A gap that grows over time is worth mentioning to a doctor."
+
     static let accentHelp = "Changes the color of buttons, links and highlights."
     static let motionHelp = "Reduced turns off moving effects. Automatic follows your device's setting."
     static let saved = "Saved"

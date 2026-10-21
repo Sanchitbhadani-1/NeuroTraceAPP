@@ -768,6 +768,7 @@ struct TabBar: View {
         (.testing, "Testing", .testing),
         (.training, "Training", .training),
         (.progress, "Progress", .progress),
+        (.care, "Care", .care),
         (.settings, "Settings", .settings),
     ]
 

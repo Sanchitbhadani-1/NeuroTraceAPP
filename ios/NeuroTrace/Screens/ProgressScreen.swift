@@ -12,6 +12,28 @@ struct Snapshot {
     var path: ReplayPath?
 }
 
+// A left hand and a right hand check-in, with the measures that differ most first
+struct HandPair {
+    var left: Snapshot
+    var right: Snapshot
+    var rows: [Hands.Row]
+
+    // The newest pair drawn the same way, both placed against the newer one's reference group
+    static func make(_ records: [AssessmentRecord], _ scoring: Scoring) -> HandPair? {
+        guard let pair = Hands.latestPair(records) else { return nil }
+        let bracket = (pair.left.ts >= pair.right.ts ? pair.left : pair.right).bracketChoice
+        let place = { (rec: AssessmentRecord) in
+            Score.scoreSession([rec.features ?? rec.result?.features ?? [:]], scoring.model, scoring.reference, bracket)
+        }
+        let left = place(pair.left), right = place(pair.right)
+        return HandPair(
+            left: Snapshot(label: "Left hand", rec: pair.left, result: left, path: checkinPath(pair.left)),
+            right: Snapshot(label: "Right hand", rec: pair.right, result: right, path: checkinPath(pair.right)),
+            rows: Hands.compareHands(left: left.measurePct, right: right.measurePct)
+        )
+    }
+}
+
 func paintPath(_ ctx: GraphicsContext, _ size: CGSize, _ path: ReplayPath, _ upTo: Double, _ palette: Palette) {
     let w = Double(size.width), h = Double(size.height)
     if w == 0 { return }
@@ -44,6 +66,8 @@ final class ProgressModel {
     var snapshots: [Snapshot] = []
     var latest: AssessmentRecord? = nil
     var upTo = Double.infinity
+    // The left and right hand check-ins to compare, or nil if there isn't a pair yet
+    var hands: HandPair? = nil
     // Every check-in, newest first, for the list at the bottom
     var history: [AssessmentRecord] = []
     @ObservationIgnored private var progressFrame = 0
@@ -55,7 +79,9 @@ final class ProgressModel {
         Task {
             let records = (try? await Store.listAssessments()) ?? []
             history = records
-            let same = records
+            hands = (try? await app.scoring.value).flatMap { scoring in HandPair.make(records, scoring) }
+            // The hand and pen or finger used most, so one check-in with the other hand doesn't empty this screen
+            let same = Meds.mainSetup(records).map { setup in records.filter { r in r.hand == setup.hand && r.inputType == setup.inputType } } ?? []
             guard same.count >= 2, let latest = same.first, let first = same.last else {
                 empty = true
                 loaded = true
@@ -117,6 +143,7 @@ struct ProgressScreen: View {
                 } else {
                     filled(m)
                 }
+                hands(m)
                 history(m)
             }
         }
@@ -142,6 +169,32 @@ struct ProgressScreen: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.top, 12)
+        }
+    }
+
+    // Left hand next to right hand, from Mihir's hand comparison
+    @ViewBuilder
+    private func hands(_ m: ProgressModel) -> some View {
+        Text("Left vs right hand").text(.sectionTitle).padding(.top, 28)
+        if let pair = m.hands {
+            Text(Copy.handsSetup(pair.left.rec.inputType)).text(.sub).padding(.top, 8)
+            HStack(alignment: .top, spacing: 12) {
+                snapshot(pair.left, .infinity)
+                snapshot(pair.right, .infinity)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, 12)
+            ResultCard(title: "Biggest differences first") {
+                Text(Copy.handsCaption).text(.sub)
+                legend("Left", "Right")
+                ForEach(pair.rows, id: \.key) { row in compareRow(row.key, row.left, row.right, ("Left", "Right")) }
+            }
+            .padding(.top, 16)
+        } else {
+            Card(alignment: .center) {
+                Text(Copy.handsEmpty).text(.lede).multilineTextAlignment(.center)
+            }
             .padding(.top, 12)
         }
     }

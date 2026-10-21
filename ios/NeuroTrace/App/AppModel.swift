@@ -52,8 +52,8 @@ private func loadScoring() throws -> Scoring {
 
 // Every screen in the app. Swift checks these names when it builds, so a typo can't send someone nowhere
 enum Screen {
-    case home, consent, about, draw, results, exercise
-    case dashboard, testing, training, progress, settings, error
+    case home, consent, about, draw, results, exercise, medication
+    case dashboard, testing, training, progress, care, settings, error
     case collect, collectDetails, collectDraw, collectDone
 
     // The collection mode screens, where a facilitator records spirals for the reference group
@@ -74,9 +74,9 @@ enum ScreenTransition {
 @MainActor
 @Observable
 final class AppModel {
-    static let tabOrder: [Screen] = [.dashboard, .testing, .training, .progress, .settings]
+    static let tabOrder: [Screen] = [.dashboard, .testing, .training, .progress, .care, .settings]
     static let tabs = Set(tabOrder)
-    static let titled = Set(tabOrder + [.results])
+    static let titled = Set(tabOrder + [.results, .medication])
 
     // Where the app was last asked to go. go() sets it and route() acts on it
     private var requested = Route(screen: .home)
@@ -123,6 +123,8 @@ final class AppModel {
     @ObservationIgnored lazy var progress = ProgressModel(app: self)
     @ObservationIgnored lazy var settings = SettingsModel(app: self)
     @ObservationIgnored lazy var collect = CollectModel(app: self)
+    @ObservationIgnored lazy var medication = MedicationModel(app: self)
+    @ObservationIgnored lazy var care = CareModel(app: self)
 
     init() {
         Motion.app = self
@@ -193,6 +195,7 @@ final class AppModel {
         let target = resolve(asked.screen, asked.param)
         if target != asked.screen { return go(target) }
 
+        // Medication doesn't wait, so doses can still be logged if the scoring files ever fail to load
         if asked.screen == .draw || asked.screen == .results || asked.screen == .progress {
             do {
                 _ = try await scoring.value
@@ -238,6 +241,8 @@ final class AppModel {
         case .collectDetails: collect.onShowDetails()
         case .collectDraw: collect.onShowDraw()
         case .collectDone: collect.onShowDone()
+        case .medication: medication.onShow()
+        case .care: care.onShow()
         case .testing, .error: break
         }
     }

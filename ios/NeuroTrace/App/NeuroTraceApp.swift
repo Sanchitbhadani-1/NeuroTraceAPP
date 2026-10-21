@@ -144,11 +144,14 @@ struct RootView: View {
             case .draw: DrawScreen()
             case .results: ResultsScreen()
             case .exercise: ExerciseScreen()
+            // Opened from the medication cards on Dashboard and Care
+            case .medication: MedicationScreen()
             // The tabs
             case .dashboard: DashboardScreen()
             case .testing: TestingScreen()
             case .training: TrainingScreen()
             case .progress: ProgressScreen()
+            case .care: CareScreen()
             case .settings: SettingsScreen()
             case .error: ErrorScreen()
             // Collection mode, run by a facilitator on the iPad
