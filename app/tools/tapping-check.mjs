@@ -3,7 +3,7 @@ import { analyzeTaps } from "../tapping.js";
 
 const FPS = 30;
 
-// Fingers start open; each cycle closes once (a tap) and opens again
+// Made-up camera frames: fingers start open, close once per cycle (a tap). hz and amp take progress 0..1
 function taps({ n = 10, hz = () => 2.5, amp = () => 1 } = {}) {
   const samples = [];
   let phase = 0;
@@ -39,13 +39,14 @@ function noNaN(r) {
 
 const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: ${a} not within ${tol} of ${b}`);
 
-// Steady
+// Steady 2.5 taps/s: dips land at 0.2, 0.6, 1.0 s ...
 {
   const r = analyzeTaps({ samples: taps() });
   noNaN(r);
   assert.equal(r.taps, 10);
   assert.equal(r.counted, true);
   assert.equal(r.tapTimes.length, 10);
+  r.tapTimes.forEach((t, k) => near(t, 0.2 + 0.4 * k, 0.5 / FPS, `tap ${k} time`));
   assert.equal(r.openings.length, 10);
   near(r.rate, 2.5, 0.1, "rate");
   near(r.duration, 3.6, 0.07, "duration");
@@ -56,7 +57,7 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   assert.equal(r.pauses, 0);
 }
 
-// Shrinking openings
+// Openings shrink to 60%: openingChange goes negative, speed stays put
 {
   const r = analyzeTaps({ samples: taps({ amp: (p) => 1 - 0.4 * p }) });
   noNaN(r);
@@ -65,7 +66,7 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   near(r.rateChange, 0, 0.05, "rateChange");
 }
 
-// Slowing down
+// Slows from 3 to 2 taps/s: rateChange goes negative, opening stays put
 {
   const r = analyzeTaps({ samples: taps({ hz: (p) => 3 - p }) });
   noNaN(r);
@@ -74,19 +75,25 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   near(r.openingChange, 0, 0.05, "openingChange");
 }
 
-// One glitched frame while the hand is open
+// One frame reads "closed" mid-opening: smoothing keeps it from counting as a tap
 {
   const samples = taps().map((s, i) => (i === 36 ? { t: s.t, gap: 0.1 } : s));
   assert.equal(analyzeTaps({ samples }).taps, 10);
 }
 
-// Short holes are smoothed over
+// One wild frame (gap 4) plus smaller late taps: TRIM keeps those taps counted
+{
+  const samples = taps({ amp: (p) => (p < 0.5 ? 1 : 0.55) }).map((s, i) => (i === 20 ? { t: s.t, gap: 4 } : s));
+  assert.equal(analyzeTaps({ samples }).taps, 10);
+}
+
+// Single missing frames are joined over, no taps lost
 {
   const samples = taps().map((s, i) => (i % 7 === 3 ? { t: s.t, gap: null } : s));
   assert.equal(analyzeTaps({ samples }).taps, 10);
 }
 
-// Long hole is not bridged: hand lost while open, back already closed
+// Hand vanishes open and returns closed after > MAX_HOLE: no tap is guessed
 {
   const valley = 5.5 / 2.5;
   const samples = taps().map((s) => (s.t > valley - 0.25 && s.t < valley - 0.02 ? { t: s.t, gap: null } : s));
@@ -95,7 +102,7 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   assert.equal(r.taps, 9);
 }
 
-// Pause
+// A 0.6 s hold mid-test is one pause
 {
   const r = analyzeTaps({ samples: join(taps({ n: 5 }), hold(0.6, 1.1), taps({ n: 5 })) });
   noNaN(r);
@@ -103,7 +110,7 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   assert.equal(r.pauses, 1);
 }
 
-// Too few taps
+// 3 taps: numbers still come back, but counted is false
 {
   const r = analyzeTaps({ samples: taps({ n: 3 }) });
   noNaN(r);
@@ -111,9 +118,9 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   assert.equal(r.counted, false);
 }
 
-// No hand at all
-for (const samples of [[], hold(2, null), hold(2, 0.5)]) {
-  const r = analyzeTaps({ samples });
+// No input, no hand, or a hand that never moves: zero taps, nulls, no NaN
+for (const input of [{}, { samples: [] }, { samples: hold(2, null) }, { samples: hold(2, 0.5) }]) {
+  const r = analyzeTaps(input);
   noNaN(r);
   assert.equal(r.taps, 0);
   assert.equal(r.counted, false);

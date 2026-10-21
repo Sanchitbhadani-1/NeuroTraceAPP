@@ -1,14 +1,17 @@
-export const TAP_LOW = 0.2;
-export const TAP_HIGH = 0.4;
-export const MAX_HOLE = 0.2;
-export const MIN_TAPS = 5;
+// Retune on real ones, tuned on made-up curves
+export const TAP_LOW = 0.2; // closed = below 20% of the gap range
+export const TAP_HIGH = 0.4; // open = above 40%, kept low so shrinking taps still count
+export const TRIM = 0.05; // range skips the top and bottom 5% of frames, so one wild frame can't stretch it
+export const MAX_HOLE = 0.2; // seconds without a hand before frames on each side stop being joined
+export const MIN_TAPS = 5; // fewer taps than this and the numbers say little
 
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
-function median(xs) {
+function quantile(xs, q) {
   const s = [...xs].sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  const pos = q * (s.length - 1);
+  const i = Math.floor(pos);
+  return s[i] + (s[Math.ceil(pos)] - s[i]) * (pos - i);
 }
 
 function thirds(xs) {
@@ -16,8 +19,9 @@ function thirds(xs) {
   return k ? [mean(xs.slice(0, k)), mean(xs.slice(-k))] : null;
 }
 
-export function analyzeTaps({ samples }) {
-  // Segments
+// samples: [{ t: seconds since the first frame, gap: fingertip distance / hand size, or null }]
+export function analyzeTaps({ samples = [] }) {
+  // Split wherever the hand was missing too long, so no tap is guessed across a hole
   const segments = [];
   let last = null;
   for (const s of samples) {
@@ -27,17 +31,18 @@ export function analyzeTaps({ samples }) {
     last = s;
   }
 
-  // Smooth
+  // 3-frame average, so a single glitchy frame can't look like a tap
   const smoothed = segments.map((seg) =>
     seg.map((s, i) => ({ t: s.t, gap: mean(seg.slice(Math.max(0, i - 1), i + 2).map((n) => n.gap)) }))
   );
   const gaps = smoothed.flat().map((s) => s.gap);
-  const min = gaps.reduce((a, b) => Math.min(a, b), Infinity);
-  const max = gaps.reduce((a, b) => Math.max(a, b), -Infinity);
+  const min = quantile(gaps, TRIM);
+  const max = quantile(gaps, 1 - TRIM);
   const lo = min + TAP_LOW * (max - min);
   const hi = min + TAP_HIGH * (max - min);
 
-  // Count taps: two thresholds so jitter in the middle can't count twice
+  // Two lines, not one, so wobble between them can't count twice
+  // Tap time = lowest point of the dip, opening = highest point before it
   const tapTimes = [];
   const openings = [];
   for (const seg of smoothed) {
@@ -62,11 +67,11 @@ export function analyzeTaps({ samples }) {
     if (state === "closed") tapTimes.push(valley.t);
   }
 
-  // Summary
   const n = tapTimes.length;
   const intervals = tapTimes.slice(1).map((t, i) => t - tapTimes[i]);
   const duration = n >= 2 ? tapTimes[n - 1] - tapTimes[0] : null;
   const m = intervals.length ? mean(intervals) : null;
+  const usual = intervals.length ? quantile(intervals, 0.5) : null;
   const opening = thirds(openings);
   const speed = thirds(intervals);
 
@@ -74,12 +79,12 @@ export function analyzeTaps({ samples }) {
     counted: n >= MIN_TAPS,
     taps: n,
     duration,
-    rate: duration ? intervals.length / duration : null,
+    rate: duration ? intervals.length / duration : null, // gaps between taps per second, like training's tap_rate
     rhythmCv: intervals.length >= 2 ? Math.sqrt(mean(intervals.map((d) => (d - m) ** 2))) / m : null,
     meanOpening: n ? mean(openings) : null,
-    openingChange: opening && opening[1] / opening[0] - 1,
-    rateChange: speed && speed[0] / speed[1] - 1,
-    pauses: intervals.filter((d) => d > 2 * median(intervals)).length,
+    openingChange: opening && opening[1] / opening[0] - 1, // last third vs first third, -0.18 = 18% smaller
+    rateChange: speed && speed[0] / speed[1] - 1, // same for speed, negative = slowed down
+    pauses: intervals.filter((d) => d > 2 * usual).length, // a gap over twice the usual one
     tapTimes,
     openings,
   };
