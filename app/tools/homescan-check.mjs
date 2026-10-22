@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cleanIdeas } from "../homescan.js";
+import { cleanIdeas, ideasFromLabels } from "../homescan.js";
 
 const idea = (title, extra = {}) => ({ title, why: "Edges catch a foot.", where: "front left", priority: "high", ...extra });
 const scan = (ideas, extra = {}) => ({ isRoom: true, room: "living room", ideas, ...extra });
@@ -95,6 +95,38 @@ assert.equal(cleanIdeas({ raw: scan([]) }).status, "empty");
 
   // Banned ideas don't use up the cap
   assert.equal(cleanIdeas({ raw: scan([...banned, ...kept]), max: 2 }).ideas[0].title, "Secure the loose cord");
+}
+
+// On-device labels -> checklist ideas
+{
+  const label = (identifier, confidence = 0.8) => ({ identifier, confidence });
+  const titles = (r) => r.ideas.map((i) => i.title);
+
+  const living = ideasFromLabels({ labels: [label("living_room"), label("rug"), label("sofa")], brightness: 0.7 });
+  assert.equal(living.status, "ok");
+  assert.equal(living.room, "Living room");
+  assert.deepEqual(titles(living), ["Tape down or remove loose rugs", "Use chairs with arms and a seat that isn't too low"]);
+  assert.ok(living.ideas.every((i) => i.where === "" && i.done === false));
+
+  const unsure = ideasFromLabels({ labels: [label("rug", 0.1), label("sofa")] });
+  assert.ok(!titles(unsure).some((t) => t.includes("rug")));
+
+  const dark = ideasFromLabels({ labels: [label("kitchen")], brightness: 0.1 });
+  assert.equal(dark.room, "Kitchen");
+  assert.ok(titles(dark).includes("Add brighter lights or night lights"));
+  assert.ok(!titles(ideasFromLabels({ labels: [label("kitchen")], brightness: 0.8 })).includes("Add brighter lights or night lights"));
+
+  assert.equal(ideasFromLabels({ labels: [label("dog"), label("grass")] }).status, "notRoom");
+  assert.equal(ideasFromLabels({ labels: [label("interior_room"), label("table")], brightness: 0.9 }).status, "empty");
+  assert.equal(ideasFromLabels({}).status, "notRoom");
+
+  const all = ideasFromLabels({
+    labels: ["staircase", "bathtub", "rug", "power_cable", "clutter", "armchair", "cabinet"].map((id) => label(id)),
+    brightness: 0.1,
+  });
+  assert.equal(all.ideas.length, 6);
+  assert.equal(all.dropped, 2);
+  assert.equal(all.ideas[0].priority, "high");
 }
 
 console.log("HOMESCAN OK");
