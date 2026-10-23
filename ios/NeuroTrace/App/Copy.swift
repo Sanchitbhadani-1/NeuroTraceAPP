@@ -96,6 +96,13 @@ enum Copy {
         return p >= 50 ? "\(hi) \(num(p))% of the reference group" : "\(lo) \(num(100 - p))% of the reference group"
     }
 
+    // The same, short enough for a table cell in the doctor summary
+    static func measureShort(_ key: String, _ frac: Double) -> String {
+        guard let m = measures[key], frac.isFinite else { return "–" }
+        let p = jsRound(frac * 100)
+        return p >= 50 ? "\(m.hi) \(num(p))%" : "\(m.lo) \(num(100 - p))%"
+    }
+
     private static let agePhrase = [
         "all": "of all ages",
         "50s": "aged under 60",
@@ -221,6 +228,10 @@ enum Copy {
     static let deleteConfirmDetail = "This can't be undone."
     static let deleted = "All your data was deleted."
     static let deleteFailed = "Couldn't delete everything. Try again."
+    static let summaryBlurb =
+        "One PDF with your check-ins, finger tapping, medication and practice, to print or share before a doctor's visit."
+    static let summaryShared = "Summary shared"
+    static let summaryEmpty = "Do a check-in or a finger tapping test first, so the summary has something in it."
     static let collectionHelp = "For the research team. Records spirals for the reference group and never shows results."
     static let howSteps = [
         "Trace a spiral on the screen with your finger or an Apple Pencil.",
@@ -232,6 +243,14 @@ enum Copy {
 
     static let loginNote = "Accounts aren't set up yet. For now, logging in opens the app on this device."
     static let logoutHelp = "Accounts aren't set up yet. Logging out takes you back to the welcome screen. Your check-ins stay on this device."
+
+    // Sample data for demo videos. Only in builds run from Xcode
+    static let sampleHelp = "For demo videos. Replaces what's on this device with about three weeks of made-up check-ins, doses, practice and finger tapping. It can take a minute or so to make."
+    static let sampleConfirm = "Replace your data with sample data?"
+    static let sampleConfirmDetail = "Your check-ins, doses, practice and finger tapping on this device are replaced with made-up ones. This can't be undone."
+    static let sampleLoading = "Making sample data\u{2026}"
+    static let sampleLoaded = "Sample data loaded"
+    static let sampleFailed = "Couldn't load the sample data"
 
     // Accounts, with Firebase. An account only signs someone in
     static let accountNote = "Log in or create an account with your email. Your check-ins stay on this device."
@@ -310,8 +329,21 @@ enum Copy {
         return "Finger opening at each of \(r.openings.count) taps, from \(String(format: "%.2f", first)) at the first tap to \(String(format: "%.2f", last)) at the last"
     }
 
+    // Home safety scan, from Aryan's home scan
+    static let scanBlurb = "Take a photo of a room and get ideas from common home-safety checklists."
     static let careBlurb = "Your medication, a summary for your doctor, and ideas to make your home easier to move around in."
     static let practicedToday = "You've already practiced today. Another try is fine whenever you feel like it."
+    static let scanHow = "Stand in the doorway and fit as much of the floor and furniture in the photo as you can."
+    static let scanPrivateAI = "Your photo is sent to Google's Gemini AI to get the ideas. NeuroTrace doesn't keep the photo."
+    static let scanConsent = "Your photo is sent to Google's Gemini AI to get the ideas. NeuroTrace doesn't keep the photo. Don't include people, faces or private papers."
+    static let scanOffline = "Gemini couldn't be reached, so this photo wasn't checked. Make sure you're online, then try again."
+    static let scanPhotoNote = "This is the photo Gemini looked at. It's only shown here, and NeuroTrace doesn't save it."
+    static let scanNotSetUp = "The home scan isn't available. It needs Gemini, which isn't set up in this copy of NeuroTrace."
+    static let scanLooking = "Looking at your photo…"
+    static let scanNotRoom = "That doesn't look like a room. Try a photo that shows the floor and furniture."
+    static let scanEmpty = "No ideas came from this photo. Try a wider photo of the room."
+    static let scanUnreadable = "That photo couldn't be read. Try another one."
+    static let scanFooter = "Ideas from common home-safety checklists. Not a professional safety check."
     static let medBlurb = "The medicines you take, with the dose and when you take them."
     static let medCardBlurb =
         "Log each dose as you take it. After a few check-ins, NeuroTrace shows how your drawing changes in the hours after a dose."

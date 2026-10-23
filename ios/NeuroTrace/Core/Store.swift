@@ -138,12 +138,16 @@ enum Store {
         }
     }
 
+    // Everything a person saved about themselves. Their age group and drawing hand, check-ins, practice
+    // tries and levels, doses and the medicine, finger tapping tests, home scans and the last exported
+    // file. Collection mode's research sessions and the app's look and sign in stay
     static func clearPersonalData() async throws {
         try await clearAssessments()
         try transaction(storeTraining, "readwrite") { (store: inout Table<TrainingTry>) in store.rows.removeAll() }
         try transaction(storeDoses, "readwrite") { (store: inout Table<Dose>) in store.rows.removeAll() }
-        for key in [trainingKey, medicationKey] { defaults.removeObject(forKey: key) }
+        for key in [trainingKey, medicationKey, homeScanConsentKey] { defaults.removeObject(forKey: key) }
         clearTapTests()
+        clearHomeScans()
         setPrefs { p in
             p.ageChoice = prefsDefaults.ageChoice
             p.hand = prefsDefaults.hand
@@ -228,6 +232,8 @@ enum Store {
     }
 
     static let medicationKey = "neurotrace:medication"
+    // Whether the person agreed to send home scan photos to Gemini
+    static let homeScanConsentKey = "neurotrace:homescanConsent"
 
     static func getMedication() -> Medication {
         guard let raw = defaults.string(forKey: medicationKey) else { return Medication() }

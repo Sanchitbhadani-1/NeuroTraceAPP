@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		40AE9909308AB365004F3667 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 40AE9908308AB365004F3667 /* FirebaseAILogic */; };
 		40AE990B308AB365004F3667 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 40AE990A308AB365004F3667 /* FirebaseAppCheck */; };
 		40AE9917308AFE8D004F3667 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 40AE9916308AFE8D004F3667 /* FirebaseAuth */; };
 /* End PBXBuildFile section */
@@ -46,6 +47,7 @@
 			files = (
 				40AE990B308AB365004F3667 /* FirebaseAppCheck in Frameworks */,
 				40AE9917308AFE8D004F3667 /* FirebaseAuth in Frameworks */,
+				40AE9909308AB365004F3667 /* FirebaseAILogic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -105,6 +107,7 @@
 			);
 			name = NeuroTrace;
 			packageProductDependencies = (
+				40AE9908308AB365004F3667 /* FirebaseAILogic */,
 				40AE990A308AB365004F3667 /* FirebaseAppCheck */,
 				40AE9916308AFE8D004F3667 /* FirebaseAuth */,
 			);
@@ -373,7 +376,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = NeuroTrace;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSCameraUsageDescription = "NeuroTrace uses the camera for the finger-tapping test. Tapping-test video is never saved.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NeuroTrace uses the camera for the finger-tapping test and, if you choose, to photograph a room for the home safety scan. Tapping-test video is never saved.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -429,7 +432,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = NeuroTrace;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
-				INFOPLIST_KEY_NSCameraUsageDescription = "NeuroTrace uses the camera for the finger-tapping test. Tapping-test video is never saved.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "NeuroTrace uses the camera for the finger-tapping test and, if you choose, to photograph a room for the home safety scan. Tapping-test video is never saved.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -497,6 +500,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		40AE9908308AB365004F3667 /* FirebaseAILogic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 40AE9906308AB245004F3667 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAILogic;
+		};
 		40AE990A308AB365004F3667 /* FirebaseAppCheck */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 40AE9906308AB245004F3667 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

@@ -1,18 +1,24 @@
 import SwiftUI
 import UIKit
 
+// Looking after yourself outside the tests and exercises. Medication, a summary for the doctor and the home scan
 @MainActor
 @Observable
 final class CareModel {
     unowned let app: AppModel
     var medication = Store.Medication()
     var lastDose: Dose? = nil
+    // True while the doctor summary is being made, so a second tap doesn't start another
+    var makingSummary = false
+    // Shown in the doctor card when there's nothing to put in a summary yet
+    var summaryNote: String? = nil
     // True while a dose is being saved, so a quick second tap doesn't log it twice
     var savingDose = false
 
     init(app: AppModel) { self.app = app }
 
     func onShow() {
+        summaryNote = nil
         refresh()
     }
 
@@ -39,6 +45,37 @@ final class CareModel {
                 Motion.toast(Copy.doseNotSaved, ok: false)
             }
         }
+    }
+
+    // Build the doctor summary from everything saved on this device, then open the share sheet with the PDF
+    func shareSummary() async {
+        if makingSummary { return }
+        makingSummary = true
+        defer { makingSummary = false }
+        let records = (try? await Store.listAssessments()) ?? []
+        let taps = Store.getTapTests()
+        if records.isEmpty && !taps.contains(where: { t in t.result.counted }) {
+            summaryNote = Copy.summaryEmpty
+            UIAccessibility.post(notification: .announcement, argument: Copy.summaryEmpty)
+            return
+        }
+        summaryNote = nil
+        let scoring = try? await app.scoring.value
+        var levels: [String: Train.LevelState] = [:]
+        for id in Practice.exercises { levels[id] = Store.getTrainingState(id) }
+        let input = DoctorSummary.Input(
+            records: records,
+            model: scoring?.model,
+            reference: scoring?.reference,
+            tapTests: taps,
+            doses: (try? await Store.listDoses()) ?? [],
+            medication: Store.getMedication(),
+            tries: (try? await Store.listTrainingTries()) ?? [],
+            levels: levels,
+            now: Date()
+        )
+        let file = ExportFile(name: "NeuroTrace summary \(DoctorSummary.fileDate(Date())).pdf", data: SummaryPDF.render(DoctorSummary.build(input)))
+        if await shareFile(file) { Motion.toast(Copy.summaryShared) }
     }
 }
 
@@ -80,6 +117,7 @@ struct CareScreen: View {
     @Environment(AppModel.self) private var app
     @Environment(\.palette) private var p
     @Environment(\.typo) private var typo
+    @State private var scanning = false
 
     var body: some View {
         let m = app.care
@@ -87,6 +125,45 @@ struct CareScreen: View {
             H1(text: "Care")
             Text(Copy.careBlurb).text(.lede).fixedSize(horizontal: false, vertical: true).padding(.top, 10)
             DoseCard(m: m).padding(.top, 24)
+            doctor(m).padding(.top, 16)
+            scan.padding(.top, 16)
         }
+        .fullScreenCover(isPresented: $scanning) {
+            HomeScanScreen { present { scanning = false } }
+                .environment(app)
+                .environment(\.palette, p)
+                .environment(\.typo, typo)
+        }
+    }
+
+    // The doctor summary PDF
+    private func doctor(_ m: CareModel) -> some View {
+        Card(spacing: 12) {
+            Text("For your doctor").text(.cardTitle)
+            Text(Copy.summaryBlurb).text(.sub).fixedSize(horizontal: false, vertical: true)
+            Btn(title: m.makingSummary ? "Making the summary\u{2026}" : "Make a summary PDF", kind: .secondary, icon: .export, disabled: m.makingSummary) {
+                Task { await m.shareSummary() }
+            }
+            if let note = m.summaryNote { Text(note).text(.sub).fixedSize(horizontal: false, vertical: true) }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("For your doctor")
+    }
+
+    private var scan: some View {
+        Card(spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Home safety scan").text(.cardTitle)
+                Text(Copy.scanBlurb).text(.sub).fixedSize(horizontal: false, vertical: true)
+            }
+            Btn(title: "Scan a room") { present { scanning = true } }
+        }
+    }
+
+    // Opens or closes the home scan, with no slide when Motion is set to Reduced
+    private func present(_ change: () -> Void) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = Motion.reduced()
+        withTransaction(transaction, change)
     }
 }

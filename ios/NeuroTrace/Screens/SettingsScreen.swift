@@ -18,6 +18,8 @@ final class SettingsModel {
     var deleteStatus = ""
     // Shown in the Account card when deleting the account didn't work
     var accountNote: String? = nil
+    // True while sample data is being made, which takes a little while
+    var loadingSample = false
     // True while a confirm, a delete or a share sheet is up, so a second tap doesn't start another
     @ObservationIgnored private var busy = false
 
@@ -92,6 +94,29 @@ final class SettingsModel {
         app.current = nil
         app.go(.home)
     }
+
+    #if DEBUG
+    // Replaces this device's data with made up sample data, for demo videos. Only in builds run from Xcode
+    func loadSampleData() async {
+        if busy { return }
+        busy = true
+        defer { busy = false }
+        if !(await confirm(Copy.sampleConfirm, Copy.sampleConfirmDetail, action: "Replace")) { return }
+        loadingSample = true
+        defer { loadingSample = false }
+        do {
+            let scoring = try await app.scoring.value
+            try await DemoData.load(model: scoring.model, reference: scoring.reference)
+            app.current = nil
+            app.choice = nil
+            onShow()
+            Motion.toast(Copy.sampleLoaded)
+        } catch {
+            print("NeuroTrace: couldn't load the sample data", error)
+            Motion.toast(Copy.sampleFailed, ok: false)
+        }
+    }
+    #endif
 
     // Removes the account from Firebase. Check-ins on this device stay, the same as logging out
     func deleteAccount() async {
@@ -267,6 +292,12 @@ struct SettingsScreen: View {
                 Btn(title: "Open collection mode", kind: .secondary) { app.go(.collect) }
                 Text(Copy.practiceExportHelp).text(.sub).fixedSize(horizontal: false, vertical: true)
                 Btn(title: "Export practice tries", kind: .secondary) { Task { await m.exportPractice() } }
+                #if DEBUG
+                Text(Copy.sampleHelp).text(.sub).fixedSize(horizontal: false, vertical: true)
+                Btn(title: m.loadingSample ? Copy.sampleLoading : "Load sample data", kind: .secondary, disabled: m.loadingSample) {
+                    Task { await m.loadSampleData() }
+                }
+                #endif
             }
         }
     }

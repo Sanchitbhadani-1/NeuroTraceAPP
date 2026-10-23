@@ -143,6 +143,8 @@ private struct TapView: UIViewRepresentable {
     }
 }
 
+
+
 @MainActor
 @Observable
 final class ExerciseModel {
