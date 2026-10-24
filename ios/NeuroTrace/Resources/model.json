@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "task": "spiral",
+  "featureOrder": [
+    "spiral_duration",
+    "spiral_max_deviation",
+    "spiral_mean_deviation",
+    "spiral_std_deviation",
+    "spiral_major_reversals",
+    "spiral_mean_speed",
+    "spiral_std_speed",
+    "spiral_ldlj",
+    "spiral_sparc",
+    "spiral_tremor_4_6",
+    "spiral_tremor_6_12",
+    "spiral_tremor_dominant_hz"
+  ],
+  "units": "healthy_sd",
+  "weights": [
+    0.05820882823811286,
+    0.0934772371080592,
+    0.16939154114543115,
+    0.18491405448933534,
+    0.1677944142243109,
+    -0.08992563438978145,
+    0.017388545487295248,
+    -0.10592736098107529,
+    -0.23543578070314528,
+    0.05471807805581961,
+    0.012229696739473684,
+    0.10204256968004154
+  ],
+  "bias": -0.48444391189830016,
+  "trainedOn": {
+    "date": "2026-09-22",
+    "sources": [
+      "uci395",
+      "pahaw"
+    ],
+    "nHealthy": 51,
+    "nPatients": 61,
+    "C": 0.05,
+    "cvAuc": [
+      0.706669881067181,
+      0.7219543555126968,
+      0.7383960141433622
+    ],
+    "cvBalancedAccuracy": [
+      0.6136290581806494,
+      0.6390228222436516,
+      0.6712552234008357
+    ],
+    "withinDataset": {
+      "pahaw": [
+        0.5959490740740742,
+        0.619212962962963,
+        0.6405092592592592
+      ],
+      "uci395": [
+        0.8448,
+        0.8680000000000001,
+        0.8948
+      ]
+    }
+  }
+}
