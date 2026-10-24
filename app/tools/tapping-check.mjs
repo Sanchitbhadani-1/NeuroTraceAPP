@@ -3,6 +3,18 @@ import { analyzeTaps } from "../tapping.js";
 
 const FPS = 30;
 
+// Mulberry32, the same seeded random numbers as tools/handwriting.mjs, so a seed gives the same frames as the Swift test
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // Made-up camera frames: fingers start open, close once per cycle (a tap). hz and amp take progress 0..1
 function taps({ n = 10, hz = () => 2.5, amp = () => 1 } = {}) {
   const samples = [];
@@ -117,6 +129,15 @@ const near = (a, b, tol, label) => assert.ok(Math.abs(a - b) <= tol, `${label}: 
   assert.equal(r.taps, 3);
   assert.equal(r.counted, false);
 }
+
+// A still hand whose reading jitters a little has no taps, however the noise falls
+for (let seed = 1; seed <= 20; seed++) {
+  const rand = rng(seed);
+  const still = Array.from({ length: 300 }, (_, i) => ({ t: i / FPS, gap: 0.6 + (rand() - 0.5) * 0.16 }));
+  assert.equal(analyzeTaps({ samples: still }).taps, 0, `still hand ${seed}`);
+}
+// Small taps that still open well past the jitter are counted
+assert.equal(analyzeTaps({ samples: taps({ amp: () => 0.35 }) }).taps, 10);
 
 // No input, no hand, or a hand that never moves: zero taps, nulls, no NaN
 for (const input of [{}, { samples: [] }, { samples: hold(2, null) }, { samples: hold(2, 0.5) }]) {

@@ -4,6 +4,8 @@ export const TAP_HIGH = 0.4; // open = above 40%, kept low so shrinking taps sti
 export const TRIM = 0.05; // range skips the top and bottom 5% of frames, so one wild frame can't stretch it
 export const MAX_HOLE = 0.2; // seconds without a hand before frames on each side stop being joined
 export const MIN_TAPS = 5; // fewer taps than this and the numbers say little
+// A hand held still jitters by well under this, and a real tap opens by far more, so a smaller swing is read as no tapping
+export const MIN_SWING = 0.25;
 
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
@@ -40,12 +42,14 @@ export function analyzeTaps({ samples = [] }) {
   const max = quantile(gaps, 1 - TRIM);
   const lo = min + TAP_LOW * (max - min);
   const hi = min + TAP_HIGH * (max - min);
+  // No hand, or a still one, has no taps to find
+  const moved = max - min >= MIN_SWING;
 
   // Two lines, not one, so wobble between them can't count twice
   // Tap time = lowest point of the dip, opening = highest point before it
   const tapTimes = [];
   const openings = [];
-  for (const seg of smoothed) {
+  for (const seg of moved ? smoothed : []) {
     let state = "start";
     let peak = 0;
     let valley = null;

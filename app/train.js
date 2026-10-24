@@ -135,7 +135,7 @@ function speedPeaks(stroke) {
 export const REACH = 0.9;
 // ...and the loop itself, from its own bottom, is at least this tall - so
 // small loops written up near the line don't count.
-export const OWN_REACH = 0.75;
+export const OWN_REACH = 0.85;
 // share of loops that must touch the line for the try to reach its target.
 export const HIT_SHARE = 0.75;
 // fewer loops than this and the try is too short to judge.
@@ -424,7 +424,7 @@ export const TRACE_LIMIT = 0.05;
 // less than this share traced and the try is too short to judge.
 export const TRACE_MIN_COVER = 0.5;
 
-// the spiral, centred in a w x h area, starting from the middle.
+// the spiral, centered in a w x h area, starting from the middle.
 export function tracingPath(w, h) {
   const radius = Math.min(w, h) / 2 - 24, n = 600, pts = [];
   for (let i = 0; i <= n; i++) {
