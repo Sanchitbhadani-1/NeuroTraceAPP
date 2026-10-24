@@ -90,7 +90,7 @@ def test_trim_stationary_returns_input_when_nothing_moves():
     assert len(tt) == len(t)
 
 
-def test_normalize_centres_and_scales():
+def test_normalize_centers_and_scales():
     _, x, y = create_spiral_synth()
     nx, ny = normalize(x, y)
 

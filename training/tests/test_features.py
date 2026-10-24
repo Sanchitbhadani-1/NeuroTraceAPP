@@ -49,12 +49,12 @@ def test_clean_spiral_has_almost_no_deviation():
     x, y = normalize(x, y)
 
     assert np.std(spiral_fit_residual(x, y)) < 0.02
-    # Not exactly 0: the cos/sin centre correction is first order. It was
+    # Not exactly 0: the cos/sin center correction is first order. It was
     # 0.048 with no correction at all, and that part moved with turn count.
 
 
 def test_deviation_is_the_same_whatever_spiral_was_drawn():
-    # THE reason this replaced distance_to_reference. A 4-turn anticlockwise
+    # THE reason this replaced distance_to_reference. A 4-turn counterclockwise
     # spiral and a 2.75-turn clockwise one are different drawings of the same
     # quality, so they must score the same. Against a saved template they did
     # not - UCI's spiral is 2.75 turns clockwise and ours is 3.76 the other
@@ -98,7 +98,7 @@ def test_no_major_reversals_on_a_clean_spiral():
 def test_quantization_alone_creates_no_major_reversals():
     # THE reason this replaced change_of_radius_direction. Rounding a smooth
     # spiral to a coarse grid made the old feature count hundreds of flips, so
-    # healthy subjects out-scored patients on UCI and the feature ran backwards.
+    # healthy subjects out-scored patients on UCI and the feature ran backward.
     t, x, y = create_spiral_synth(tremor_amp=0.0)
 
     for grid in (1, 2, 4, 8):

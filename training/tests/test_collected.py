@@ -45,7 +45,7 @@ def test_diagnosis_is_kept_separately_from_label():
     assert rec["diagnosis"] == "essential_tremor"
 
 
-def test_parkinsons_is_labelled():
+def test_parkinsons_is_labeled():
     assert next(parse_session(session(diagnosis="parkinsons")))["label"] == 1
 
 

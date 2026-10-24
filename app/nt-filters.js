@@ -32,7 +32,7 @@ function poly(roots) {
 export function butter(order, cutoff, fs, btype = "low") {
   const Wn = (2 * cutoff) / fs;
   const warped = 4 * Math.tan((Math.PI * Wn) / 2);
-  // scipy normalises to Nyquist = 1 and then bilinear-transforms at fs = 2,
+  // scipy normalizes to Nyquist = 1 and then bilinear-transforms at fs = 2,
   // so the pre-warp constant is 2 * 2 = 4
 
   let p = [];

@@ -95,14 +95,14 @@ export const ON_DEVICE = "All analysis runs on the device. No motor data ever le
 
 export const CONSENT_UNDERSTAND = "I understand this is a measurement tool, not a medical diagnosis.";
 export const CONSENT_ADULT = "I am 18 years of age or older.";
-export const CONSENT_HELP = "Tick both boxes to continue.";
+export const CONSENT_HELP = "Check both boxes to continue.";
 export const ABOUT_WHY = "Used only to choose who you are compared with. Kept on this device.";
 export const HAND_HELP = "The hand you will draw with. Use the same one each time so your check-ins compare fairly.";
 export const CHECKIN_BLURB = "About two minutes. Draw a spiral with your finger or a stylus.";
 export const HISTORY_EMPTY = "Your results will appear here after your first check-in. They stay on this device.";
 export const DRAW_INSTRUCTION =
-  "Start at the blue dot and follow the grey line outwards, at a comfortable pace. Lifting your " +
-  "finger is fine — carry on from where you stopped.";
+  "Start at the blue dot and follow the gray line outward, at a comfortable pace. Lifting your " +
+  "finger is fine — keep going from where you stopped.";
 export const TOO_SHORT =
   "That spiral was too short to measure. Please draw the whole spiral, from the middle to the outside.";
 export const COLLECT_INTRO =
@@ -112,8 +112,8 @@ export const NEW_PARTICIPANT =
   "A random ID is made for them. Write it on their signed consent form — names are never stored.";
 export const RETURNING_BLURB = "Pick up an ID already on this iPad.";
 export const COLLECT_DRAW_INSTRUCTION =
-  "Start at the dot in the middle and trace outwards at a comfortable pace. Lifting the pencil is " +
-  "fine — carry on from where you stopped.";
+  "Start at the dot in the middle and trace outward at a comfortable pace. Lifting the pencil is " +
+  "fine — keep going from where you stopped.";
 export const SESSION_SAVED =
   "Three spirals are stored on this iPad. Thank the participant — no results are shown in collection mode.";
 
@@ -191,7 +191,7 @@ export const levelShort = (n) => `Level ${n}`;
 export const levelOf = (n, of) => `Level ${n} of ${of}`;
 export const hitsSoFar = (hits, need) => `Hits at this level: ${hits} of ${need}`;
 export const missesInARow = (misses, limit) => `Misses in a row: ${misses} of ${limit}`;
-export const TOP_LEVEL = "Top level. Keep practising to hold it.";
+export const TOP_LEVEL = "Top level. Keep practicing to hold it.";
 export const TARGET_LABEL = "Reach this line";
 export const TOO_FEW_LOOPS = "Too few loops to count. Write at least 4 tall loops across the row.";
 export const VERDICT_HIT = "Hit";
@@ -295,13 +295,13 @@ export const REPLAY_MISSING = "No drawing was kept for this check-in.";
 export const progressSetup = (hand, inputType) =>
   `Comparing check-ins drawn with your ${hand} hand, using ${INPUT_PHRASE[inputType] ?? "the same input"}.`;
 
-export const ACCENT_HELP = "Changes the colour of buttons, links and highlights.";
+export const ACCENT_HELP = "Changes the color of buttons, links and highlights.";
 export const MOTION_HELP = "Reduced turns off moving effects. Automatic follows your device's setting.";
 export const SAVED = "Saved";
 export const SPIRAL_SAVED = (n) => `Spiral ${n} saved`;
 export const MEASURING = "Measuring your spiral";
 export const MEASURE_STEPS = [
-  "Tidying up the line",
+  "Cleaning up the line",
   "Smoothing out screen jitter",
   "Measuring 12 things about it",
   "Comparing with the reference group",
@@ -310,7 +310,7 @@ export const ACCENTS = ["Blue", "Indigo", "Violet", "Teal", "Amber", "Rose", "Gr
 
 export const COLLECT_CONSENT = "Written consent for this participant is on file.";
 export const DIAGNOSIS_NOTE =
-  "Only participants with no diagnosis are added to the healthy reference. Everyone else is kept, labelled and left out of it.";
+  "Only participants with no diagnosis are added to the healthy reference. Everyone else is kept, labeled and left out of it.";
 export const MED_HELP = "A rough answer is fine. Leave it empty if unsure.";
 export const NO_PARTICIPANTS = "No participants on this iPad yet.";
 export const UNEXPORTED_HELP = "They stay on this iPad until exported. Export before clearing Safari data.";

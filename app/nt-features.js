@@ -106,7 +106,7 @@ export function spiralFitResidual(x, y, minTurns = 1.0) {
   const cos = Float64Array.from(theta, Math.cos);
   const sin = Float64Array.from(theta, Math.sin);
   const p = lstsq([ones, theta, cos, sin], r);
-  // Columns 1 and 2 are the spiral itself; 3 and 4 soak up a wrong centre
+  // Columns 1 and 2 are the spiral itself; 3 and 4 soak up a wrong center
 
   return Float64Array.from(r, (v, i) => v - (p[0] + p[1] * theta[i] + p[2] * cos[i] + p[3] * sin[i]));
 }

@@ -63,7 +63,7 @@ export function unwrap(p) {
   return out;
 }
 
-// np.gradient(f, t), edge_order=1: second-order centred inside, one-sided at
+// np.gradient(f, t), edge_order=1: second-order centered inside, one-sided at
 // the ends. Written for uneven t even though ours is even after resampling.
 export function gradient(f, t) {
   const n = f.length;

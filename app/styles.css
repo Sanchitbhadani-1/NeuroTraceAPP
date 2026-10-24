@@ -916,9 +916,9 @@ fieldset + .sub { margin-top: 10px; }
     max(env(safe-area-inset-bottom), 40px)
     max(env(safe-area-inset-left), 24px);
 }
-.col.centred { align-items: center; text-align: center; }
-.col.centred > .bar,
-.col.centred > .actions { align-self: stretch; text-align: initial; }
+.col.centered { align-items: center; text-align: center; }
+.col.centered > .bar,
+.col.centered > .actions { align-self: stretch; text-align: initial; }
 
 .collect-screen h1 {
   margin-top: 20px;
@@ -1063,12 +1063,12 @@ fieldset + .sub { margin-top: 10px; }
   height: 1em;
   margin-right: 6px;
   background: currentColor;
-  -webkit-mask: var(--tick) center / contain no-repeat;
-  mask: var(--tick) center / contain no-repeat;
-  animation: tick-in 360ms var(--ease);
+  -webkit-mask: var(--checkmark) center / contain no-repeat;
+  mask: var(--checkmark) center / contain no-repeat;
+  animation: checkmark-in 360ms var(--ease);
 }
-:root { --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
-@keyframes tick-in { from { transform: scale(0) rotate(-30deg); opacity: 0; } }
+:root { --checkmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+@keyframes checkmark-in { from { transform: scale(0) rotate(-30deg); opacity: 0; } }
 
 .reveal {
   opacity: 0;
@@ -1131,8 +1131,8 @@ fieldset + .sub { margin-top: 10px; }
 }
 .toast svg { width: 20px; height: 20px; color: var(--bg); stroke-width: 2.6; stroke-dasharray: 24; stroke-dashoffset: 24; }
 .toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
-.toast.show svg { animation: draw-tick 380ms var(--ease) 140ms forwards; }
-@keyframes draw-tick { to { stroke-dashoffset: 0; } }
+.toast.show svg { animation: draw-checkmark 380ms var(--ease) 140ms forwards; }
+@keyframes draw-checkmark { to { stroke-dashoffset: 0; } }
 
 .segmented {
   position: relative;
@@ -1208,9 +1208,9 @@ fieldset + .sub { margin-top: 10px; }
   width: 16px;
   height: 16px;
   background: currentColor;
-  -webkit-mask: var(--tick) center / contain no-repeat;
-  mask: var(--tick) center / contain no-repeat;
-  animation: tick-in 260ms var(--ease);
+  -webkit-mask: var(--checkmark) center / contain no-repeat;
+  mask: var(--checkmark) center / contain no-repeat;
+  animation: checkmark-in 260ms var(--ease);
 }
 .accent-option input:focus-visible + .accent-dot { outline: 3px solid var(--accent); outline-offset: 5px; }
 .accent-option[data-accent="blue"] { --sw: #0066cc; }

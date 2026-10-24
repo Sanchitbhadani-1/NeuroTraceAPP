@@ -123,7 +123,7 @@ def trim_stationary(t, x, y, threshold=0.05, window=10):
 def low_pass(t, x, y, fs=100.0, cutoff=15.0, order=4):
 
     b, a = butter(order, cutoff, btype="low", fs=fs)
-    # Builds the filter recipe - how to blend each sample with its neighbours
+    # Builds the filter recipe - how to blend each sample with its neighbors
 
     if len(x) <= 3 * max(len(a), len(b)):
     # If the trace is shorter than the padding filtfilt needs
@@ -131,7 +131,7 @@ def low_pass(t, x, y, fs=100.0, cutoff=15.0, order=4):
         raise ValueError(f"trace too short to filter ({len(x)} samples)")
 
     return t, filtfilt(b, a, x), filtfilt(b, a, y)
-    # Filters forwards then backwards so nothing shifts in time
+    # Filters forward then backward so nothing shifts in time
 
 
 # The one chain everything else calls. THE ORDER MATTERS, the JavaScript
@@ -144,7 +144,7 @@ def preprocess_trace(t, x, y, fs=100.0, cutoff=15.0, trim=True):
     if trim:
         t, x, y = trim_stationary(t, x, y)
     # Cut the dead time off each end - before resample so the grid doesn't
-    # span the pause, before normalize so the resting samples don't drag the centre
+    # span the pause, before normalize so the resting samples don't drag the center
 
     t, x, y = resample_uniform(t, x, y, fs=fs)
     # Put it on an even 100 Hz grid - every frequency measurement assumes this
