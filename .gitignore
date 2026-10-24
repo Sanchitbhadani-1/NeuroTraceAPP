@@ -8,6 +8,8 @@ CLAUDE.md
 
 # Secrets. One line, and forgetting it is the expensive mistake.
 .env
+# Firebase setup for Gemini in the home scan. Each Mac adds its own copy, it never goes on GitHub
+GoogleService-Info.plist
 
 # Datasets — PaHaW is licence-restricted and this repo is public.
 # Put everything you generate from it under data/ too.
