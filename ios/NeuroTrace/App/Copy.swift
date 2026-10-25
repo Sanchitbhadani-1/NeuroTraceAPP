@@ -128,8 +128,8 @@ enum Copy {
         AgeChoice(label: "Prefer not to say", bracket: nil),
     ]
 
-    static let pitch = "NeuroTrace turns an ordinary iPad into a motor-function measurement tool."
-    static let tracks = "It reports where each measure falls relative to a reference population and tracks how it changes over time."
+    static let pitch = "NeuroTrace turns an ordinary iPad into a motor-function measurement tool powered by machine learning."
+    static let tracks = "A model trained on spiral drawings from people with and without Parkinson's combines twelve measures of your drawing, like speed, smoothness and tremor, into one result, then tracks how it changes over time."
     static let onDevice = "All analysis runs on this device. Your data only leaves it if you choose to share it."
 
     static let consentUnderstand = "I understand this is a measurement tool, not a medical diagnosis."
