@@ -575,12 +575,16 @@ onShow.dashboard = async () => {
   $("history").replaceChildren(list);
 };
 
+// --- progress: first vs latest check-in ---
 const sameSetup = (a, b) => a.hand === b.hand && a.inputType === b.inputType;
+// Same hand and same input (Pencil or finger)
 
+// One measure's row - the first and latest percentile as sentences and as two dots on a track
 function compareRow(key, first, latest) {
   const row = el("div", "measure");
   const track = el("div", "track");
   track.setAttribute("aria-hidden", "true");
+  // Hidden from screen readers, the sentences say the same thing
   for (const [frac, cls] of [[first, "track-dot then"], [latest, "track-dot"]]) {
     const dot = el("span", cls);
     dot.style.setProperty("--p", `${Math.round(frac * 100)}%`);
@@ -594,6 +598,9 @@ function compareRow(key, first, latest) {
 }
 
 const REPLAY_HZ = 60;
+
+// A small copy of the drawing for replay - samples at least 1/60 s apart, plus each stroke's first and last
+// Saved with each check-in and kept after its raw samples are deleted
 function replayPath(samples, strokeStarts = [0]) {
   const starts = new Set(strokeStarts);
   const keep = [];
@@ -606,18 +613,28 @@ function replayPath(samples, strokeStarts = [0]) {
     }
   });
   const pick = (k) => Float32Array.from(keep, (i) => samples[i][k]);
-  return { t: pick("t"), x: pick("x"), y: pick("y"), starts: keep.flatMap((i, j) => (starts.has(i) ? [j] : [])) };
+  const keptStarts = [];
+  keep.forEach((i, j) => {
+    if (starts.has(i)) keptStarts.push(j);
+  });
+  return { t: pick("t"), x: pick("x"), y: pick("y"), starts: keptStarts };
 }
 
+// The saved replay path, or one built from the raw samples for older check-ins. null when there's neither
 function checkinPath(rec) {
   const trial = (rec.trials ?? []).find((t) => t.path || t.samples);
   if (!trial) return null;
   return trial.path ?? replayPath(trial.samples, trial.strokeStarts);
 }
 
+// A card with the check-in's date, result label and drawing. live is the canvas and path for replay, or null
 function snapshot(label, rec, result) {
   const box = el("section", "card snapshot");
-  box.append(el("span", "sub", label), el("h2", "card-title", whenFmt.format(rec.ts)), el("p", null, copy.TIERS[result.tier].label));
+  box.append(
+    el("span", "sub", label),
+    el("h2", "card-title", whenFmt.format(rec.ts)),
+    el("p", null, copy.TIERS[result.tier].label),
+  );
   const path = checkinPath(rec);
   if (!path?.t.length) {
     box.append(el("p", "sub", copy.REPLAY_MISSING));
@@ -630,6 +647,7 @@ function snapshot(label, rec, result) {
   return { box, live: { canvas, path } };
 }
 
+// Draws the path fitted to the canvas up to upTo seconds, with a dot at the pen tip while replaying
 function paintPath({ canvas, path }, upTo = Infinity) {
   if (!canvas.isConnected) return;
   const { ctx, w, h } = fitCanvas(canvas);
@@ -637,19 +655,31 @@ function paintPath({ canvas, path }, upTo = Infinity) {
   const { t, x, y, starts } = path;
   const { minX, maxX, minY, maxY } = bounds([x, y]);
   const pad = 10;
-  const s = Math.min((w - 2 * pad) / (maxX - minX || 1), (h - 2 * pad) / (maxY - minY || 1));
-  const ox = w / 2 - s * (minX + maxX) / 2, oy = h / 2 - s * (minY + maxY) / 2;
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  const s = Math.min((w - 2 * pad) / spanX, (h - 2 * pad) / spanY);
+  // Keeps the proportions. || 1 stops a divide by zero on a flat drawing
+  const ox = w / 2 - s * (minX + maxX) / 2;
+  const oy = h / 2 - s * (minY + maxY) / 2;
   const lifts = new Set(starts);
   let n = 0;
-  while (n < t.length && t[n] <= upTo) n++;
+  while (n < t.length && t[n] <= upTo) {
+    n++;
+  }
   ctx.strokeStyle = ctx.fillStyle = cssVar("--accent");
   ctx.lineWidth = 2;
   ctx.lineCap = ctx.lineJoin = "round";
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
-    const X = ox + s * x[i], Y = oy + s * y[i];
-    if (i === 0 || lifts.has(i)) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    const X = ox + s * x[i];
+    const Y = oy + s * y[i];
+    if (i === 0 || lifts.has(i)) {
+      ctx.moveTo(X, Y);
+    } else {
+      ctx.lineTo(X, Y);
+    }
   }
+  // Each pen lift starts a new line, nothing drawn across the gap
   ctx.stroke();
   if (n > 0 && n < t.length) {
     ctx.beginPath();
@@ -659,36 +689,52 @@ function paintPath({ canvas, path }, upTo = Infinity) {
 }
 
 let progressFrame = 0;
+
+// Replays every drawing at once, each at its own speed
 function replayAll(lives) {
   cancelAnimationFrame(progressFrame);
-  const end = lives.reduce((m, l) => Math.max(m, l.path.t[l.path.t.length - 1]), 0);
+  let end = 0;
+  for (const l of lives) {
+    end = Math.max(end, l.path.t[l.path.t.length - 1]);
+  }
   const start = performance.now();
   const step = (now) => {
     const elapsed = (now - start) / 1000;
     lives.forEach((l) => paintPath(l, elapsed));
-    if (elapsed < end && lives.some((l) => l.canvas.isConnected)) progressFrame = requestAnimationFrame(step);
+    if (elapsed < end && lives.some((l) => l.canvas.isConnected)) {
+      progressFrame = requestAnimationFrame(step);
+    }
   };
   progressFrame = requestAnimationFrame(step);
 }
 
+// First vs latest check-in with the same hand and input, measure by measure
 onShow.progress = async () => {
   const body = $("progress-body");
   const records = await listAssessments().catch(() => []);
   const latest = records[0];
-  const first = latest && records.filter((r) => sameSetup(r, latest)).at(-1);
+  let first = null;
+  if (latest) {
+    first = records.filter((r) => sameSetup(r, latest)).at(-1);
+  }
+  // Records come newest first - the last match is the earliest check-in
   if (!first || first === latest) {
     const empty = el("div", "card empty");
     const mascot = el("span", "empty-mascot");
     mascot.dataset.mascot = "idle";
     empty.append(mascot, el("p", null, copy.PROGRESS_EMPTY));
     mountMascots(empty);
-    return body.replaceChildren(empty);
+    body.replaceChildren(empty);
+    return;
   }
   const { model, reference } = await scoring;
   const place = (rec) => scoreSession([rec.features ?? rec.result.features], model, reference, latest.bracketChoice);
-  const a = place(first), b = place(latest);
+  const a = place(first);
+  const b = place(latest);
+  // Both scored again with today's reference and the latest check-in's age group
 
-  const one = snapshot("First check-in", first, a), two = snapshot("Latest check-in", latest, b);
+  const one = snapshot("First check-in", first, a);
+  const two = snapshot("Latest check-in", latest, b);
   const pair = el("div", "snapshot-pair");
   pair.append(one.box, two.box);
   const lives = [one.live, two.live].filter(Boolean);
@@ -713,10 +759,23 @@ onShow.progress = async () => {
     group.append(el("h3", null, g.title), ...keys.map((k) => compareRow(k, a.measurePct[k], b.measurePct[k])));
     measures.append(group);
   }
-  body.replaceChildren(el("p", "sub progress-meta", copy.progressSetup(latest.hand, latest.inputType)), pair, ...(lives.length ? [replay] : []), measures);
-  requestAnimationFrame(() => (reduced() ? lives.forEach((l) => paintPath(l)) : replayAll(lives)));
+  const meta = el("p", "sub progress-meta", copy.progressSetup(latest.hand, latest.inputType));
+  const parts = [meta, pair];
+  if (lives.length) parts.push(replay);
+  parts.push(measures);
+  body.replaceChildren(...parts);
+  requestAnimationFrame(() => {
+    if (reduced()) {
+      lives.forEach((l) => paintPath(l));
+    } else {
+      replayAll(lives);
+    }
+  });
+  // Replays once on opening. Reduced motion shows the finished drawings
 };
 
+// --- training ---
+// Each exercise card shows its saved level and last change, or Coming soon
 onShow.training = () => {
   for (const btn of document.querySelectorAll("#screen-training [data-exercise]")) {
     const id = btn.dataset.exercise;
@@ -728,37 +787,59 @@ onShow.training = () => {
     }
     const state = getTrainingState(id);
     level.textContent = copy.levelShort((state?.level ?? 0) + 1);
-    note.textContent = !state ? copy.NOT_STARTED : copy.LAST_CHANGE[state.last] ?? copy.hitsSoFar(state.hits, HITS_TO_LEVEL_UP);
+    if (!state) {
+      note.textContent = copy.NOT_STARTED;
+    } else {
+      note.textContent = copy.LAST_CHANGE[state.last] ?? copy.hitsSoFar(state.hits, HITS_TO_LEVEL_UP);
+    }
   }
 };
-document.querySelectorAll("#screen-training [data-exercise]").forEach((btn) => btn.addEventListener("click", () => {
-  const id = btn.dataset.exercise;
-  if (EXERCISES[id].built) location.hash = `#exercise/${id}`;
-  else toast(copy.NOT_BUILT);
-}));
+for (const btn of document.querySelectorAll("#screen-training [data-exercise]")) {
+  btn.addEventListener("click", () => {
+    const id = btn.dataset.exercise;
+    if (EXERCISES[id].built) {
+      location.hash = `#exercise/${id}`;
+    } else {
+      toast(copy.NOT_BUILT);
+    }
+  });
+}
 
+// --- exercise screen ---
 const exSheet = $("ex-pad").parentElement;
 const tapCanvas = $("ex-tap");
 const tapSheet = tapCanvas.parentElement;
 let ex = null;
+// The open exercise - its id, level state, levels and the try in progress
 const exTarget = () => ex.levels[ex.state.level];
 const exUI = () => EX_UI[ex.id];
 
-let exTimers = [], exFrame = 0, exClicks = [];
+let exTimers = [];
+let exFrame = 0;
+let exClicks = [];
+// Every timer, animation frame and metronome click, for exStop to cancel together
 function exStop() {
   exTimers.forEach(clearTimeout);
   exTimers = [];
   cancelAnimationFrame(exFrame);
   for (const o of exClicks) {
-    try { o.stop(); } catch {}
+    try {
+      o.stop();
+    } catch {}
   }
   exClicks = [];
 }
 const exAfter = (ms, fn) => exTimers.push(setTimeout(fn, ms));
-addEventListener("hashchange", () => { if (!location.hash.startsWith("#exercise")) exStop(); });
+addEventListener("hashchange", () => {
+  if (!location.hash.startsWith("#exercise")) exStop();
+});
+// Leaving the exercise screen stops everything
 
-const exPhase = (text) => ($("ex-phase").textContent = text ?? "");
+function exPhase(text) {
+  $("ex-phase").textContent = text ?? "";
+}
 
+// Shows one button row - draw, start or next. Anything else hides all three
 function exActions(which) {
   $("ex-draw-actions").hidden = which !== "draw";
   $("ex-start-actions").hidden = which !== "start";
@@ -768,8 +849,11 @@ function exActions(which) {
 function strokePath(ctx, path, upTo = path.x.length) {
   ctx.beginPath();
   for (let i = 0; i < upTo; i++) {
-    if (i === 0) ctx.moveTo(path.x[i], path.y[i]);
-    else ctx.lineTo(path.x[i], path.y[i]);
+    if (i === 0) {
+      ctx.moveTo(path.x[i], path.y[i]);
+    } else {
+      ctx.lineTo(path.x[i], path.y[i]);
+    }
   }
   ctx.stroke();
 }
@@ -781,9 +865,16 @@ function dot(ctx, x, y, r) {
   ctx.fill();
 }
 
+// Baseline at 80% of the pad height, target line share of the height above it
 function writingGeometry(w, h, share) {
   const baselineY = h * 0.8;
-  return { baselineY, targetPx: h * share, targetY: baselineY - h * share, left: w * 0.06, right: w * 0.94 };
+  return {
+    baselineY,
+    targetPx: h * share,
+    targetY: baselineY - h * share,
+    left: w * 0.06,
+    right: w * 0.94,
+  };
 }
 
 function bigWritingGuide(ctx, w, h) {
@@ -804,10 +895,12 @@ function bigWritingGuide(ctx, w, h) {
   ctx.fillStyle = cssVar("--ink2");
   ctx.font = `600 15px ${cssVar("--font-body")}`;
   ctx.textAlign = "right";
+  // Label at the right end, the end writing from the left reaches last
   ctx.fillText(copy.TARGET_LABEL, g.right, g.targetY - 10);
   ctx.restore();
 }
 
+// A filled dot over each loop that reached the line, a hollow one over each that didn't
 function loopMarks(ctx) {
   if (!ex.marks || !exPad.hasInk()) return;
   ctx.save();
@@ -829,6 +922,7 @@ function beginDrawing() {
   exPhase(null);
 }
 
+// Scores a try and keeps the pad size and target, enough to score it again later
 function scoreBigWritingTry(samples, starts, w, h, recent) {
   const geo = writingGeometry(w, h, exTarget());
   return {
@@ -837,16 +931,23 @@ function scoreBigWritingTry(samples, starts, w, h, recent) {
   };
 }
 
-const DEMO_SECS = 4, IMAGINE_SECS = 4;
+const DEMO_SECS = 4;
+const IMAGINE_SECS = 4;
+// Seconds of watching the demo, then of picturing it
 let spiralCache = null;
+
+// The spiral for this pad size, built again only when the size changes
 function spiralFor(w, h) {
-  if (spiralCache?.w !== w || spiralCache?.h !== h) spiralCache = { ...tracingPath(w, h), w, h };
+  if (spiralCache?.w !== w || spiralCache?.h !== h) {
+    spiralCache = { ...tracingPath(w, h), w, h };
+  }
   return spiralCache;
 }
 
 function tracingGuide(ctx, w, h) {
   const path = spiralFor(w, h);
   const visibility = ex.phase === "trace" ? exTarget() : 1;
+  // Full strength while watching and picturing, the level's visibility while tracing
   if (visibility > 0) {
     ctx.save();
     ctx.globalAlpha = visibility;
@@ -859,6 +960,7 @@ function tracingGuide(ctx, w, h) {
   dot(ctx, path.x[0], path.y[0], 7.5);
 }
 
+// The demo dot and the part of the spiral it has covered
 function tracingOverlay(ctx, w, h) {
   if (ex.phase !== "watch" || ex.demoAt == null) return;
   const path = spiralFor(w, h);
@@ -870,9 +972,11 @@ function tracingOverlay(ctx, w, h) {
   const upTo = path.s.findIndex((s) => s > along);
   strokePath(ctx, path, upTo < 0 ? path.x.length : upTo);
   ctx.restore();
-  dot(ctx, ...pointAlong(path, along), 9);
+  const [x, y] = pointAlong(path, along);
+  dot(ctx, x, y, 9);
 }
 
+// Watch the demo, picture it with a countdown, then trace. The pad stays locked until tracing starts
 function beginTracing() {
   ex.phase = "watch";
   exSheet.inert = true;
@@ -888,7 +992,8 @@ function beginTracing() {
         ex.phase = "trace";
         exPad.redraw();
         exSheet.inert = false;
-        return exPhase(copy.TRACE_NOW);
+        exPhase(copy.TRACE_NOW);
+        return;
       }
       exPhase(copy.imagine(left));
       left--;
@@ -899,21 +1004,30 @@ function beginTracing() {
   if (reduced()) {
     exPhase(copy.LOOK);
     exPad.redraw();
-    return exAfter(2500, imagine);
+    exAfter(2500, imagine);
+    return;
   }
+  // Reduced motion shows the spiral for a moment instead of the moving dot
   exPhase(copy.WATCH);
   const t0 = performance.now();
   const step = (now) => {
     ex.demoAt = Math.min(1, (now - t0) / 1000 / DEMO_SECS);
     exPad.redraw();
-    if (ex.demoAt < 1) exFrame = requestAnimationFrame(step);
-    else exAfter(600, imagine);
+    if (ex.demoAt < 1) {
+      exFrame = requestAnimationFrame(step);
+    } else {
+      exAfter(600, imagine);
+    }
   };
   exFrame = requestAnimationFrame(step);
 }
 
+// Clears the drawing during tracing without replaying the demo
 function clearTracing() {
-  if (ex.phase !== "trace") return exNewTry();
+  if (ex.phase !== "trace") {
+    exNewTry();
+    return;
+  }
   exPad.reset();
   exSheet.inert = false;
   $("ex-done").disabled = true;
@@ -930,7 +1044,9 @@ function scoreTracingTry(samples, starts, w, h, recent) {
 
 let waveCache = null;
 function waveFor(w, h) {
-  if (waveCache?.w !== w || waveCache?.h !== h) waveCache = { ...rhythmPath(w, h), w, h };
+  if (waveCache?.w !== w || waveCache?.h !== h) {
+    waveCache = { ...rhythmPath(w, h), w, h };
+  }
   return waveCache;
 }
 
@@ -943,6 +1059,7 @@ function rhythmGuide(ctx, w, h) {
   ctx.restore();
 }
 
+// The dot on the wave, ringed to stand out over the drawing
 function rhythmOverlay(ctx) {
   if (ex.phase === "done" || !waveCache) return;
   const [x, y] = pointAlong(waveCache, (ex.dotBeat ?? 0) * waveCache.beatLength);
@@ -967,8 +1084,11 @@ function beginRhythm() {
 }
 
 let audio = null;
+
+// One metronome click on the audio clock. The accented click is higher
 function click(at, accent) {
-  const o = audio.createOscillator(), g = audio.createGain();
+  const o = audio.createOscillator();
+  const g = audio.createGain();
   o.frequency.value = accent ? 1320 : 880;
   g.gain.setValueAtTime(0.0001, at);
   g.gain.exponentialRampToValueAtTime(0.5, at + 0.004);
@@ -978,33 +1098,44 @@ function click(at, accent) {
   o.stop(at + 0.08);
   exClicks.push(o);
 }
+
+// Lead-in clicks then the beats, all scheduled on the audio clock. The dot runs from the same start time
 function startRhythm() {
   const beatSec = 60 / exTarget();
   const lead = 0.15;
+  // First click 0.15 s after the tap
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
     audio.resume();
+    // iOS only plays sound after a tap
     const t0 = audio.currentTime + lead;
-    for (let k = 0; k <= COUNT_IN + RHYTHM_BEATS; k++) click(t0 + k * beatSec, k === COUNT_IN);
+    for (let k = 0; k <= COUNT_IN + RHYTHM_BEATS; k++) {
+      click(t0 + k * beatSec, k === COUNT_IN);
+    }
   } catch (err) {
     console.warn("NeuroTrace: no metronome sound", err);
   }
+  // With no sound the dot still moves
   ex.dotStart = performance.now() + (lead + COUNT_IN * beatSec) * 1000;
   ex.phase = "count";
   exSheet.inert = false;
+  // The pen can go down during the lead-in
   exActions("draw");
   $("ex-done").disabled = !exPad.hasInk();
   const step = (now) => {
     const t = (now - ex.dotStart) / 1000;
-    if (t < 0) exPhase(copy.getReady(Math.min(COUNT_IN, Math.ceil(-t / beatSec))));
-    else if (ex.phase === "count") {
+    if (t < 0) {
+      const beatsLeft = Math.min(COUNT_IN, Math.ceil(-t / beatSec));
+      exPhase(copy.getReady(beatsLeft));
+    } else if (ex.phase === "count") {
       ex.phase = "run";
       exPhase(copy.FOLLOW);
     }
     ex.dotBeat = Math.min(RHYTHM_BEATS, Math.max(0, t / beatSec));
     exPad.redraw();
-    if (t < RHYTHM_BEATS * beatSec) exFrame = requestAnimationFrame(step);
-    else {
+    if (t < RHYTHM_BEATS * beatSec) {
+      exFrame = requestAnimationFrame(step);
+    } else {
       ex.phase = "end";
       exPhase(copy.RHYTHM_END);
     }
@@ -1015,20 +1146,32 @@ function startRhythm() {
 function scoreRhythmTry(samples, starts, w, h, recent) {
   const beatSec = 60 / exTarget();
   const first = exPad.startedAt();
-  const penOffset = ex.dotStart != null && first != null ? (first - ex.dotStart) / 1000 : 0;
+  let penOffset = 0;
+  if (ex.dotStart != null && first != null) {
+    penOffset = (first - ex.dotStart) / 1000;
+  }
+  // Seconds from the dot setting off to the pen's first touch, negative when the pen was down first
   return {
     out: scoreRhythm(samples, starts, waveFor(w, h), { beatSec, penOffset }, recent),
     geometry: { width: w, height: h, bpm: exTarget(), penOffset },
   };
 }
 
+// --- hand skills: shrinking targets ---
 const GAP_MS = 400;
 const TAP_SLACK = 6;
+// Taps up to this many px outside the circle still catch it
 let round = null;
-let tapCtx = null, tapW = 0, tapH = 0;
+// The round in progress - results, stray taps, the current target, whether a pen was seen and the input
+let tapCtx = null;
+let tapW = 0;
+let tapH = 0;
 
 function sizeTapCanvas() {
-  ({ ctx: tapCtx, w: tapW, h: tapH } = fitCanvas(tapCanvas));
+  const fit = fitCanvas(tapCanvas);
+  tapCtx = fit.ctx;
+  tapW = fit.w;
+  tapH = fit.h;
 }
 new ResizeObserver(() => {
   if (tapSheet.hidden) return;
@@ -1063,10 +1206,21 @@ function startTargets() {
   exAfter(600, nextTarget);
 }
 
+// Shows the next target until it's caught or shrinks away, or ends the round after TARGETS
 function nextTarget() {
-  if (round.results.length >= TARGETS) return endRound();
-  const size = exTarget(), m = size / 2 + 8;
-  round.target = { x: m + Math.random() * (tapW - 2 * m), y: m + Math.random() * (tapH - 2 * m), size, at: performance.now() };
+  if (round.results.length >= TARGETS) {
+    endRound();
+    return;
+  }
+  const size = exTarget();
+  const m = size / 2 + 8;
+  round.target = {
+    x: m + Math.random() * (tapW - 2 * m),
+    y: m + Math.random() * (tapH - 2 * m),
+    size,
+    at: performance.now(),
+  };
+  // A random spot with the whole circle at least 8 px inside the canvas
   exPhase(copy.circleOf(round.results.length + 1, TARGETS));
   const step = (now) => {
     const t = round?.target;
@@ -1075,7 +1229,8 @@ function nextTarget() {
       round.results.push({ caught: false, ms: null });
       round.target = null;
       paintTarget(now);
-      return exAfter(GAP_MS, nextTarget);
+      exAfter(GAP_MS, nextTarget);
+      return;
     }
     paintTarget(now);
     exFrame = requestAnimationFrame(step);
@@ -1087,10 +1242,14 @@ tapCanvas.addEventListener("pointerdown", (e) => {
   if (ex?.phase !== "run" || !round) return;
   if (e.pointerType === "pen") round.penSeen = true;
   if (e.pointerType === "touch" && round.penSeen) return;
-  round.inputType ??= e.pointerType === "pen" ? "pencil" : e.pointerType;
+  // Once a pen is seen, touches are ignored - a resting palm doesn't count as a tap
+  if (round.inputType == null) {
+    round.inputType = e.pointerType === "pen" ? "pencil" : e.pointerType;
+  }
   const t = round.target;
   const rect = tapCanvas.getBoundingClientRect();
-  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
   const r = t ? targetRadius(t.size, (e.timeStamp - t.at) / 1000) : 0;
   if (t && r > 0 && Math.hypot(x - t.x, y - t.y) <= r + TAP_SLACK) {
     round.results.push({ caught: true, ms: Math.round(e.timeStamp - t.at) });
@@ -1099,7 +1258,10 @@ tapCanvas.addEventListener("pointerdown", (e) => {
     paintTarget();
     navigator.vibrate?.(10);
     exAfter(GAP_MS, nextTarget);
-  } else round.extra++;
+  } else {
+    round.extra++;
+  }
+  // A tap that misses counts as stray, gaps included
 });
 
 function endRound() {
@@ -1145,35 +1307,52 @@ const EX_UI = {
   },
   "hand-skills": {
     pad: "tap", begin: beginTargets, start: startTargets,
-    rows: ({ measures: m }) => [
-      ["caught", copy.caughtSentence(m.caught, m.targets, Math.ceil(CATCH_SHARE * m.targets))],
-      ["reaction", copy.reactionSentence(m.reactionMs)],
-      ["extra", copy.extraTapsSentence(m.extraTaps, Math.floor(m.caught / TAP_PRECISION - m.caught + 1e-9))],
-    ],
+    rows: ({ measures: m }) => {
+      const needed = Math.ceil(CATCH_SHARE * m.targets);
+      const maxExtra = Math.floor(m.caught / TAP_PRECISION - m.caught + 1e-9);
+      // Most stray taps allowed for this many catches. 1e-9 keeps rounding from losing one
+      return [
+        ["caught", copy.caughtSentence(m.caught, m.targets, needed)],
+        ["reaction", copy.reactionSentence(m.reactionMs)],
+        ["extra", copy.extraTapsSentence(m.extraTaps, maxExtra)],
+      ];
+    },
   },
 };
+// Each exercise's pad shape, drawing, start, scoring and result rows
 
 const exPad = createPad($("ex-pad"), {
   onInk({ cleared }) {
     $("ex-done").disabled = exSheet.inert || !exPad.hasInk();
     showStatus($("ex-status"), cleared ? copy.RESIZE_CLEARED : null);
   },
-  guide: (ctx, w, h) => ex && EX_UI[ex.id].guide?.(ctx, w, h),
-  overlay: (ctx, w, h) => ex && EX_UI[ex.id].overlay?.(ctx, w, h),
+  guide: (ctx, w, h) => {
+    if (ex) EX_UI[ex.id].guide?.(ctx, w, h);
+  },
+  overlay: (ctx, w, h) => {
+    if (ex) EX_UI[ex.id].overlay?.(ctx, w, h);
+  },
 });
 
+// The level, the hits so far as dots and the misses in a row
 function renderExProgress() {
   const { state, levels } = ex;
   $("ex-level").textContent = copy.levelOf(state.level + 1, levels.length);
   const parts = [];
-  if (state.level === levels.length - 1) parts.push(el("span", "sub", copy.TOP_LEVEL));
-  else {
+  if (state.level === levels.length - 1) {
+    parts.push(el("span", "sub", copy.TOP_LEVEL));
+  } else {
     const dots = el("span", "hit-dots");
     dots.setAttribute("aria-hidden", "true");
-    for (let i = 0; i < HITS_TO_LEVEL_UP; i++) dots.append(el("span", i < state.hits ? "on" : null));
+    // Hidden from screen readers, the sentence next to it says the same
+    for (let i = 0; i < HITS_TO_LEVEL_UP; i++) {
+      dots.append(el("span", i < state.hits ? "on" : null));
+    }
     parts.push(dots, el("span", "sub", copy.hitsSoFar(state.hits, HITS_TO_LEVEL_UP)));
   }
-  if (state.misses) parts.push(el("span", "sub", copy.missesInARow(state.misses, MISSES_TO_LEVEL_DOWN)));
+  if (state.misses) {
+    parts.push(el("span", "sub", copy.missesInARow(state.misses, MISSES_TO_LEVEL_DOWN)));
+  }
   $("ex-progress").replaceChildren(...parts);
   $("ex-too-hard").disabled = state.level === 0;
 }
@@ -1192,12 +1371,20 @@ function exNewTry() {
   ui.begin();
 }
 
+// The verdict, a note when a reached target was slower or shakier, a row per measure and any level change
 function renderExResult(out, change) {
   const id = ex.id;
-  const verdict = out.hit ? copy.VERDICT_HIT : out.reachedTarget ? copy.VERDICT_NOT_COUNTED[id] : copy.VERDICT_MISS;
-  const notes = out.reachedTarget && !out.hit
-    ? [out.slower && copy.SLOWER_NOTES[id], out.shakier && copy.SHAKIER_NOTES[id]].filter(Boolean)
-    : [];
+  let verdict = copy.VERDICT_MISS;
+  if (out.hit) {
+    verdict = copy.VERDICT_HIT;
+  } else if (out.reachedTarget) {
+    verdict = copy.VERDICT_NOT_COUNTED[id];
+  }
+  const notes = [];
+  if (out.reachedTarget && !out.hit) {
+    if (out.slower) notes.push(copy.SLOWER_NOTES[id]);
+    if (out.shakier) notes.push(copy.SHAKIER_NOTES[id]);
+  }
   const rows = exUI().rows(out).map(([key, text]) => {
     const row = el("div", "ex-row");
     row.append(el("span", "ex-row-name", copy.MEASURE_NAMES[key]), el("span", "sub", text));
@@ -1248,13 +1435,17 @@ onShow.exercise = (id) => {
   exNewTry();
 };
 
-$("ex-clear").addEventListener("click", () => (exUI().clear ?? exNewTry)());
+$("ex-clear").addEventListener("click", () => {
+  const clear = exUI().clear ?? exNewTry;
+  clear();
+});
 $("ex-next").addEventListener("click", exNewTry);
 $("ex-start").addEventListener("click", () => exUI().start());
 
 $("ex-too-hard").addEventListener("click", () => {
   const state = tooHard(ex.state);
   if (state === ex.state) return;
+  // Already at Level 1
   ex.state = state;
   setTrainingState(ex.id, state);
   renderExProgress();
@@ -1265,17 +1456,21 @@ $("ex-too-hard").addEventListener("click", () => {
 $("ex-done").addEventListener("click", async () => {
   $("ex-done").disabled = true;
   exSheet.inert = true;
+  // Locks the pad and the button against scoring twice
   const trace = exPad.trace();
   const starts = exPad.strokeStarts();
   const { width, height } = $("ex-pad").getBoundingClientRect();
   const tries = await listTrainingTries(ex.id).catch(() => []);
   const recent = tries.filter((t) => t.counted && t.inputType === trace.inputType).map((t) => t.measures);
+  // Recent counted tries with the same input
   const { out, geometry } = exUI().score(trace.samples, starts, width, height, recent);
   if (!out.counted) {
     exSheet.inert = false;
     $("ex-done").disabled = !exPad.hasInk();
-    return showStatus($("ex-status"), exUI().tooShort);
+    showStatus($("ex-status"), exUI().tooShort);
+    return;
   }
+  // Too short to judge - the drawing stays and the person can keep going
   exStop();
   ex.phase = "done";
   ex.marks = out.marks ?? null;
@@ -1286,17 +1481,25 @@ $("ex-done").addEventListener("click", async () => {
 
 $("export-practice").addEventListener("click", async () => {
   const tries = await listTrainingTries().catch(() => []);
-  if (!tries.length) return toast(copy.NO_PRACTICE);
+  if (!tries.length) {
+    toast(copy.NO_PRACTICE);
+    return;
+  }
   const body = { formatVersion: 1, exportedAt: new Date().toISOString(), tries };
   const json = JSON.stringify(body, (k, v) => {
     if (!ArrayBuffer.isView(v)) return v;
     return Array.from(v, (n) => Math.round(n * 100) / 100);
   });
-  const file = new File([json], `neurotrace-practice-${body.exportedAt.slice(0, 10)}.json`, { type: "application/json" });
+  // Typed arrays become plain arrays, rounded to 2 decimals
+  const name = `neurotrace-practice-${body.exportedAt.slice(0, 10)}.json`;
+  const file = new File([json], name, { type: "application/json" });
   if (await shareFile(file)) toast(copy.EXPORTED);
 });
 
-document.querySelectorAll("[data-soon]").forEach((btn) => btn.addEventListener("click", () => toast(copy.NOT_BUILT)));
+for (const btn of document.querySelectorAll("[data-soon]")) {
+  btn.addEventListener("click", () => toast(copy.NOT_BUILT));
+}
+// Buttons marked data-soon show Not built yet
 
 const COLLECT_TRIALS = 3;
 let pendingId = null;
