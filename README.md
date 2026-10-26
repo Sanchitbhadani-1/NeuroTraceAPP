@@ -1,5 +1,5 @@
 # Neurotrace.
--# The Parkinson's Screening App
+**The Parkinson's Screening App**
 *(insert cover photo here)*
 ---
 
