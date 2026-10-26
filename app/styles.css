@@ -1,3 +1,11 @@
+/* STYLES.CSS HOLDS HOW EVERY SCREEN OF THE APP LOOKS */
+/* IT HAS THE COLORS FOR LIGHT AND DARK MODE, THE LAYOUT OF EACH SCREEN AND THE ANIMATIONS */
+/* THE END OF THE FILE HAS THE RULES FOR REDUCED MOTION AND HIGH CONTRAST */
+
+
+/* THE TWO FONTS, LOADED FROM THE FONTS FOLDER */
+
+/* Atkinson Hyperlegible Next, for body text */
 @font-face {
   font-family: "Atkinson Hyperlegible Next";
   src: url("fonts/atkinson-hyperlegible-next-latin-wght.woff2") format("woff2");
@@ -5,6 +13,7 @@
   font-style: normal;
   font-display: swap;
 }
+/* Newsreader, for headings */
 @font-face {
   font-family: "Newsreader";
   src: url("fonts/newsreader-latin-opsz.woff2") format("woff2");
@@ -13,9 +22,14 @@
   font-display: swap;
 }
 
+
+/* THE COLORS, SIZES AND TIMING USED EVERYWHERE */
+
+/* Measure every box with its padding and border included */
 *, *::before, *::after { box-sizing: border-box; }
 
 :root {
+  /* The light mode colors, where the accent comes from the accent color picked */
   --bg: #f5f5f7;
   --surface: #ffffff;
   --ink: #1d1d1f;
@@ -27,25 +41,59 @@
   --accent-fill: var(--a-light);
   --accent-soft: color-mix(in srgb, var(--a-light) 10%, #ffffff);
 
+  /* The width of thin lines, which becomes 2 px with high contrast */
   --hair: 1px;
 
+  /* One point of text, so every size follows the device's text size, and the body text size */
   --px: calc(1rem / 17);
   --body: calc(17 * var(--px));
 
+  /* The easing curve every animation uses, and the fonts for body text and headings */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --font-body: "Atkinson Hyperlegible Next", system-ui, -apple-system, sans-serif;
   --font-display: "Newsreader", "Iowan Old Style", Georgia, serif;
   color-scheme: light dark;
 }
 
-:root { --a-light: #0066cc; --a-dark: #2997ff; --a-fill-dark: #0071e3; }
-:root[data-accent="indigo"] { --a-light: #4f46e5; --a-dark: #8e8cff; --a-fill-dark: #5b54e8; }
-:root[data-accent="violet"] { --a-light: #7c3aed; --a-dark: #bf8bff; --a-fill-dark: #8b4ff0; }
-:root[data-accent="teal"] { --a-light: #00747a; --a-dark: #40c8d4; --a-fill-dark: #00808a; }
-:root[data-accent="amber"] { --a-light: #a65200; --a-dark: #ffa94d; --a-fill-dark: #b35900; }
-:root[data-accent="rose"] { --a-light: #c2185b; --a-dark: #ff7eb0; --a-fill-dark: #c7206a; }
-:root[data-accent="graphite"] { --a-light: #4a4a4f; --a-dark: #b8b8be; --a-fill-dark: #5a5a60; }
+/* Each accent color has a light mode color, a dark mode color, and a dark mode color for filled buttons */
+/* Blue is the default */
+:root {
+  --a-light: #0066cc;
+  --a-dark: #2997ff;
+  --a-fill-dark: #0071e3;
+}
+:root[data-accent="indigo"] {
+  --a-light: #4f46e5;
+  --a-dark: #8e8cff;
+  --a-fill-dark: #5b54e8;
+}
+:root[data-accent="violet"] {
+  --a-light: #7c3aed;
+  --a-dark: #bf8bff;
+  --a-fill-dark: #8b4ff0;
+}
+:root[data-accent="teal"] {
+  --a-light: #00747a;
+  --a-dark: #40c8d4;
+  --a-fill-dark: #00808a;
+}
+:root[data-accent="amber"] {
+  --a-light: #a65200;
+  --a-dark: #ffa94d;
+  --a-fill-dark: #b35900;
+}
+:root[data-accent="rose"] {
+  --a-light: #c2185b;
+  --a-dark: #ff7eb0;
+  --a-fill-dark: #c7206a;
+}
+:root[data-accent="graphite"] {
+  --a-light: #4a4a4f;
+  --a-dark: #b8b8be;
+  --a-fill-dark: #5a5a60;
+}
 
+/* Dark mode colors, used when the device is in dark mode unless light was picked */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #000000;
@@ -60,6 +108,7 @@
     --accent-soft: color-mix(in srgb, var(--a-fill-dark) 32%, #000000);
   }
 }
+/* The same dark mode colors when dark was picked */
 :root[data-theme="dark"] {
   --bg: #000000;
   --surface: #1c1c1e;
@@ -73,18 +122,25 @@
   --accent-soft: color-mix(in srgb, var(--a-fill-dark) 32%, #000000);
   color-scheme: dark;
 }
+/* Light mode when light was picked */
 :root[data-theme="light"] { color-scheme: light; }
 
+/* Bigger body text on wider screens */
 @media (min-width: 700px) {
   :root { --body: calc(19 * var(--px)); }
 }
 
+
+/* THE PAGE, TEXT AND LINKS */
+
+/* Make the base text size 17 px, and stop phones from resizing text on their own */
 html {
   font-size: 106.25%;
   -webkit-text-size-adjust: 100%;
   background: var(--bg);
 }
 
+/* On iPhone and iPad, follow the text size set in Settings */
 @supports (font: -apple-system-body) and (-webkit-touch-callout: none) {
   html { font: -apple-system-body; }
 }
@@ -99,13 +155,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Take the default spacing off headings and paragraphs */
+/* Use the accent color for selected text, the text cursor and form controls */
 h1, h2, h3, p { margin: 0; }
 ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 input { caret-color: var(--accent); }
 html { accent-color: var(--accent); }
 
+/* Hide scrollbars */
 * { scrollbar-width: none; }
 *::-webkit-scrollbar { display: none; }
+/* Headings use the heading font */
 h1, h2, h3 {
   font-family: var(--font-display);
   font-weight: 600;
@@ -113,14 +173,24 @@ h1, h2, h3 {
   font-optical-sizing: auto;
 }
 h1 { font-weight: 500; }
-button, input { font: inherit; letter-spacing: inherit; color: inherit; }
+/* Buttons and text boxes use the same text as the page */
+button, input {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
 a { color: var(--accent); text-decoration: none; }
 svg { display: block; }
 
+/* Show a clear outline on whatever has keyboard focus, but not on titles that get focus when a screen opens */
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 
 h1:focus { outline: none; }
 
+
+/* SCREENS */
+
+/* Each screen is one column that fills the screen, keeps clear of the notch and the home bar, and slides in when it opens */
 .screen {
   display: flex;
   flex-direction: column;
@@ -137,12 +207,17 @@ h1:focus { outline: none; }
   animation: enter 280ms var(--ease) both;
 }
 
+/* Anything hidden stays hidden, whatever other rules say */
 [hidden] { display: none !important; }
 
 @keyframes enter {
   from { opacity: 0; transform: translateY(8px); }
 }
 
+
+/* PIECES SHARED BY MANY SCREENS */
+
+/* The buttons at the bottom of a screen, side by side when there are two */
 .actions {
   margin-top: auto;
   padding-top: 24px;
@@ -155,6 +230,7 @@ h1:focus { outline: none; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Screen titles */
 h1 {
   margin-top: 16px;
   font-size: calc(34 * var(--px));
@@ -162,6 +238,7 @@ h1 {
   text-wrap: balance;
 }
 
+/* The text under a title, and smaller gray text */
 .lede { color: var(--ink2); text-wrap: pretty; }
 h1 + .lede { margin-top: 10px; }
 
@@ -173,29 +250,37 @@ h1 + .lede { margin-top: 10px; }
 }
 .center { text-align: center; }
 
+/* Section headings */
 .section-title {
   margin-top: 28px;
   font-size: calc(21 * var(--px));
   line-height: 1.2;
 }
 
+/* Fixed width text for participant IDs */
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.06em;
 }
 
+/* The NeuroTrace name and logo at the top */
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 44px;
 }
-.brand svg { width: 28px; height: 28px; flex-shrink: 0; }
+.brand svg {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
 .brand-name {
   font-size: calc(19 * var(--px));
   font-weight: 600;
 }
 
+/* The spiral logo, and the spiral guide and traced line in the drawings */
 .mark {
   fill: none;
   stroke: var(--accent);
@@ -203,7 +288,11 @@ h1 + .lede { margin-top: 10px; }
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.art-guide { fill: none; stroke: var(--guide); stroke-width: 3; }
+.art-guide {
+  fill: none;
+  stroke: var(--guide);
+  stroke-width: 3;
+}
 .art-trace {
   fill: none;
   stroke: var(--accent);
@@ -212,6 +301,7 @@ h1 + .lede { margin-top: 10px; }
   stroke-linejoin: round;
 }
 
+/* The spiral drawing on the home page, which draws itself in */
 .hero {
   margin-top: 20px;
   align-self: center;
@@ -235,6 +325,7 @@ h1 + .lede { margin-top: 10px; }
   to { stroke-dashoffset: 0; }
 }
 
+/* The lock note that says everything stays on the device */
 .lock {
   display: flex;
   gap: 10px;
@@ -243,8 +334,13 @@ h1 + .lede { margin-top: 10px; }
   line-height: 1.4;
   color: var(--ink2);
 }
-.lock svg { width: 20px; height: 20px; margin-top: 1px; }
+.lock svg {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
 
+/* Line icons */
 .icon {
   flex-shrink: 0;
   fill: none;
@@ -254,6 +350,10 @@ h1 + .lede { margin-top: 10px; }
   stroke-linejoin: round;
 }
 
+
+/* BUTTONS AND LINKS */
+
+/* Buttons, which shrink a little when pressed */
 .btn {
   display: flex;
   align-items: center;
@@ -273,6 +373,7 @@ h1 + .lede { margin-top: 10px; }
 }
 
 .btn:active:not(:disabled) { transform: scale(0.97); opacity: 0.8; }
+/* Filled, outlined and turned off buttons */
 .btn-primary { background: var(--accent-fill); color: #ffffff; }
 .btn-secondary {
   background: transparent;
@@ -285,8 +386,13 @@ h1 + .lede { margin-top: 10px; }
   box-shadow: none;
   cursor: default;
 }
-.btn svg { width: 22px; height: 22px; stroke-width: 2.2; }
+.btn svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.2;
+}
 
+/* Text links like Back, Done and Exit, big enough to tap */
 .bar-link, .back, .links a, .topbar a {
   display: flex;
   align-items: center;
@@ -296,12 +402,26 @@ h1 + .lede { margin-top: 10px; }
 }
 .bar-link, .back { font-size: calc(17 * var(--px)); }
 .bar-link.strong { justify-content: flex-end; font-weight: 600; }
-.back { gap: 2px; margin-left: -8px; justify-self: start; }
-.back svg { width: 24px; height: 24px; stroke-width: 2.2; }
+.back {
+  gap: 2px;
+  margin-left: -8px;
+  justify-self: start;
+}
+.back svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.2;
+}
 
-.links { display: flex; flex-wrap: wrap; column-gap: 24px; }
+/* A row of links */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 24px;
+}
 .links a { font-size: calc(15 * var(--px)); }
 
+/* The bar at the top of some screens, with a link on the left, a title in the middle and room on the right */
 .bar {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr) 88px;
@@ -317,6 +437,7 @@ h1 + .lede { margin-top: 10px; }
   line-height: 1.3;
 }
 
+/* A row with text on the left and a link on the right */
 .meta-row {
   display: flex;
   align-items: center;
@@ -325,7 +446,12 @@ h1 + .lede { margin-top: 10px; }
   min-height: 44px;
 }
 
-.segments { display: flex; gap: 6px; width: 120px; }
+/* The progress segments, where filled ones are done */
+.segments {
+  display: flex;
+  gap: 6px;
+  width: 120px;
+}
 .segments span {
   flex-grow: 1;
   height: 5px;
@@ -334,6 +460,7 @@ h1 + .lede { margin-top: 10px; }
 }
 .segments .on { background: var(--accent); }
 
+/* Small rounded labels like Sample */
 .pill {
   padding: 6px 12px;
   border-radius: 999px;
@@ -343,6 +470,10 @@ h1 + .lede { margin-top: 10px; }
 }
 .pill:empty { display: none; }
 
+
+/* CARDS, CHECKBOXES AND CHOICES */
+
+/* Cards */
 .card {
   padding: 20px;
   border-radius: 16px;
@@ -355,7 +486,13 @@ h1 + .lede { margin-top: 10px; }
 
 .notice { margin-top: 24px; }
 
-.checks { margin-top: 16px; padding: 0; gap: 0; overflow: hidden; }
+/* The consent checkboxes, in one card with a line between them */
+.checks {
+  margin-top: 16px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
 .check {
   position: relative;
   display: flex;
@@ -383,12 +520,19 @@ h1 + .lede { margin-top: 10px; }
   accent-color: var(--accent);
 }
 
-fieldset { margin: 28px 0 0; padding: 0; border: 0; min-width: 0; }
+/* Groups of choices, like age and drawing hand */
+fieldset {
+  margin: 28px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
 legend {
   padding: 0;
   font-weight: 600;
   line-height: 1.3;
 }
+/* Choice chips in two columns, which fill in when picked */
 .chips {
   margin-top: 12px;
   display: grid;
@@ -428,19 +572,40 @@ legend {
 .chip:active span { transform: scale(0.97); opacity: 0.8; }
 fieldset + .sub { margin-top: 10px; }
 
+
+/* THE HOME PAGE */
+
 #screen-home h1 {
   margin-top: 32px;
   font-size: calc(40 * var(--px));
   line-height: 1.08;
 }
 #screen-home .lede { margin-top: 12px; }
-.home-actions { margin-top: 24px; display: flex; flex-direction: column; gap: 10px; }
+.home-actions {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .home-credit { margin-top: 20px; }
 
+
+/* THE DASHBOARD */
+
+/* The check-in card, with a small spiral next to its text */
 #screen-dashboard .brand-name { font-size: calc(21 * var(--px)); }
 .checkin { margin-top: 16px; gap: 16px; }
-.checkin-row { display: flex; gap: 16px; align-items: center; }
-.checkin-row > div { flex-grow: 1; display: flex; flex-direction: column; gap: 6px; }
+.checkin-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.checkin-row > div {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 #screen-dashboard h1 {
   margin: 0;
   font-size: calc(24 * var(--px));
@@ -448,15 +613,31 @@ fieldset + .sub { margin-top: 10px; }
 }
 
 #screen-dashboard h1 + .lede { margin: 0; line-height: 1.45; }
-.mini { width: 92px; height: 92px; flex-shrink: 0; }
+.mini {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+}
 .mini .art-guide { stroke-width: 7; }
 .mini .art-trace { stroke-width: 13; }
-.empty { margin-top: 12px; padding: 24px 20px; color: var(--ink2); text-wrap: pretty; }
+/* The card shown before the first check-in */
+.empty {
+  margin-top: 12px;
+  padding: 24px 20px;
+  color: var(--ink2);
+  text-wrap: pretty;
+}
 
+/* The lock note at the bottom */
 #screen-dashboard .actions { gap: 8px; }
 
+/* The medication card and its text boxes */
 .med { margin-top: 16px; }
-.field { display: flex; flex-direction: column; gap: 6px; }
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
 .field-label { font-weight: 600; }
 .text-input {
   width: 100%;
@@ -469,14 +650,31 @@ fieldset + .sub { margin-top: 10px; }
 }
 .text-input::placeholder { color: var(--ink2); opacity: 1; }
 
+
+/* THE TESTING AND TRAINING TABS */
+
+/* The spiral test card */
 #screen-testing .checkin { margin-top: 24px; }
 
-.title-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+/* A title with something next to it */
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
 .title-row h1 { margin-top: 0; }
 .title-row + .lede { margin-top: 10px; }
+/* Today's focus card */
 .focus { margin-top: 12px; }
 .focus .btn { margin-top: 4px; }
-.exercise-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+/* The exercise cards, two across, which shrink a little when pressed */
+.exercise-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
 .exercise {
   gap: 2px;
   width: 100%;
@@ -488,27 +686,79 @@ fieldset + .sub { margin-top: 10px; }
   transition: transform 160ms var(--ease);
 }
 .exercise:active { transform: scale(0.97); }
-.exercise-name { font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+.exercise-name {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 2px;
+}
 
-.week { margin-top: 12px; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+/* The This week card, with a dot for each day */
+.week {
+  margin-top: 12px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
 .week-dots { display: flex; gap: 10px; }
-.week-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--fill); }
+.week-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fill);
+}
 .week-dots .on { background: var(--accent); }
 .week .num { font-weight: 600; }
 .week-link { margin-left: auto; gap: 2px; }
 
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* A card's title row, with a label on the right */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 .week-note { flex-basis: 100%; order: 1; }
 
+/* Hidden buttons and button rows stay hidden */
 .btn[hidden], .actions[hidden] { display: none; }
-.pad.pad-wide { width: 100%; aspect-ratio: 3 / 2; }
-.ex-progress { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
-.hit-dots { display: flex; gap: 8px; }
-.hit-dots span { width: 14px; height: 14px; border-radius: 50%; background: var(--fill); }
-.hit-dots .on { background: var(--accent); }
-.ex-row { display: flex; flex-direction: column; gap: 2px; padding-top: 12px; border-top: var(--hair) solid var(--line); }
 
-.ex-phase { margin-top: 10px; min-height: 3em; font-weight: 600; }
+
+/* AN EXERCISE */
+
+/* The wide drawing area for exercises */
+.pad.pad-wide { width: 100%; aspect-ratio: 3 / 2; }
+/* The level progress, with a dot for each hit */
+.ex-progress {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+.hit-dots { display: flex; gap: 8px; }
+.hit-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fill);
+}
+.hit-dots .on { background: var(--accent); }
+/* Each measure in a try's result */
+.ex-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 12px;
+  border-top: var(--hair) solid var(--line);
+}
+
+/* The step shown above the drawing area, with room for two lines on phones */
+.ex-phase {
+  margin-top: 10px;
+  min-height: 3em;
+  font-weight: 600;
+}
 @media (min-width: 700px) {
   .ex-phase { min-height: 1.5em; }
 }
@@ -516,6 +766,7 @@ fieldset + .sub { margin-top: 10px; }
 .pad[hidden] { display: none; }
 .ex-row-name { font-weight: 600; }
 .ex-level-note { font-weight: 600; }
+/* The Too hard today button */
 .text-btn {
   align-self: center;
   min-height: 44px;
@@ -529,20 +780,59 @@ fieldset + .sub { margin-top: 10px; }
 }
 .text-btn:disabled { color: var(--ink2); cursor: default; }
 
+
+/* THE PROGRESS TAB */
+
+/* The first and latest check-in side by side */
 #progress-body { display: flex; flex-direction: column; }
 .progress-meta { margin-top: 16px; }
 .replay-both { margin-top: 12px; }
-.snapshot-pair { margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.snapshot-pair {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
 .snapshot { gap: 4px; }
 .snapshot .card-title { font-size: calc(19 * var(--px)); }
-.thumb { width: 100%; aspect-ratio: 1; margin-top: 8px; }
-.dot-legend { display: flex; gap: 20px; font-size: calc(15 * var(--px)); color: var(--ink2); }
-.dot-legend > span { display: flex; align-items: center; gap: 8px; }
-.legend-key { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); }
+.thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  margin-top: 8px;
+}
+/* The key for the two dots, where the first check-in's dot is hollow */
+.dot-legend {
+  display: flex;
+  gap: 20px;
+  font-size: calc(15 * var(--px));
+  color: var(--ink2);
+}
+.dot-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-key {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+}
 .legend-key.then { background: transparent; box-shadow: inset 0 0 0 2.5px var(--accent); }
-.track-dot.then { background: var(--surface); box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 3px var(--surface); }
+.track-dot.then {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 3px var(--surface);
+}
 
-#draw-progress { margin-top: 4px; align-self: center; width: 96px; }
+
+/* TRACING THE SPIRAL */
+
+/* The progress segments and title on the drawing screen */
+#draw-progress {
+  margin-top: 4px;
+  align-self: center;
+  width: 96px;
+}
 #screen-draw h1 {
   margin-top: 20px;
   font-size: calc(28 * var(--px));
@@ -550,6 +840,7 @@ fieldset + .sub { margin-top: 10px; }
 }
 #screen-draw h1 + .lede { margin-top: 8px; }
 
+/* The square drawing area, sized to fit the screen, with no scrolling, selecting or zooming while drawing */
 .pad {
   position: relative;
   overflow: hidden;
@@ -571,8 +862,15 @@ fieldset + .sub { margin-top: 10px; }
   .pad { border-radius: 28px; }
 }
 
-.pad canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The canvas fills the drawing area */
+.pad canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
+/* The pulsing start dot */
 .pad-start {
   position: absolute;
   left: 50%;
@@ -591,6 +889,7 @@ fieldset + .sub { margin-top: 10px; }
   50% { transform: scale(1.25); opacity: 0.12; }
 }
 
+/* The message card under the drawing area */
 .status {
   margin-top: 16px;
   padding: 14px 16px;
@@ -600,9 +899,17 @@ fieldset + .sub { margin-top: 10px; }
   line-height: 1.4;
 }
 .status[hidden] { display: none; }
-.status svg { width: 22px; height: 22px; color: var(--accent); }
+.status svg {
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+}
 .status strong { font-weight: 600; }
 
+
+/* RESULTS */
+
+/* The results title */
 #screen-results h1 {
   margin-top: 14px;
   font-size: calc(32 * var(--px));
@@ -610,7 +917,12 @@ fieldset + .sub { margin-top: 10px; }
 }
 #screen-results .actions { margin-top: 28px; }
 
-.track { position: relative; height: 20px; margin: 6px 8px 0; }
+/* The line each measure's dot sits on, with a mark at the halfway point */
+.track {
+  position: relative;
+  height: 20px;
+  margin: 6px 8px 0;
+}
 .track::before {
   content: "";
   position: absolute;
@@ -632,6 +944,7 @@ fieldset + .sub { margin-top: 10px; }
   border-radius: 1px;
   background: var(--guide);
 }
+/* The dot, which slides out from the middle to its place */
 .track-dot {
   position: absolute;
   z-index: 1;
@@ -650,14 +963,23 @@ fieldset + .sub { margin-top: 10px; }
   from { left: 50%; opacity: 0; }
 }
 
+/* The three result levels, where the reached level is filled */
 .levels {
   margin-top: 18px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
-.level { display: flex; flex-direction: column; gap: 8px; }
-.level-bar { height: 8px; border-radius: 4px; background: var(--fill); }
+.level {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.level-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--fill);
+}
 .level-label {
   font-size: calc(15 * var(--px));
   line-height: 1.3;
@@ -666,6 +988,7 @@ fieldset + .sub { margin-top: 10px; }
 .level.on .level-bar { background: var(--accent); }
 .level.on .level-label { color: var(--ink); font-weight: 600; }
 
+/* The result summary, the comparison note and the result cards */
 .summary {
   margin-top: 10px;
   font-size: calc(19 * var(--px));
@@ -677,8 +1000,14 @@ fieldset + .sub { margin-top: 10px; }
 .reference + .result-card { margin-top: 28px; }
 .result-card h2 { font-size: calc(21 * var(--px)); line-height: 1.2; }
 .result-card h3 { font-size: calc(19 * var(--px)); line-height: 1.25; }
-.result-card hr { width: 100%; margin: 6px 0; border: 0; border-top: var(--hair) solid var(--line); }
+.result-card hr {
+  width: 100%;
+  margin: 6px 0;
+  border: 0;
+  border-top: var(--hair) solid var(--line);
+}
 
+/* Each measure, and the groups of measures */
 .measure {
   display: flex;
   flex-direction: column;
@@ -696,6 +1025,7 @@ fieldset + .sub { margin-top: 10px; }
   border-top: var(--hair) solid var(--line);
 }
 .measure-group .measure { border-top: 0; padding-top: 10px; }
+/* The labels under each line */
 .scale-labels {
   display: flex;
   justify-content: space-between;
@@ -704,7 +1034,13 @@ fieldset + .sub { margin-top: 10px; }
   color: var(--ink2);
 }
 
-.drawing { width: 100%; max-width: 320px; aspect-ratio: 1; align-self: center; }
+/* The drawing, the speed chart and their key */
+.drawing {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  align-self: center;
+}
 .speed { width: 100%; height: 88px; }
 .legend {
   display: flex;
@@ -714,14 +1050,44 @@ fieldset + .sub { margin-top: 10px; }
   line-height: 1.4;
   color: var(--ink2);
 }
-.legend-row { display: flex; gap: 10px; align-items: baseline; }
-.swatch { flex-shrink: 0; width: 22px; border-radius: 2px; }
-.swatch-raw { height: 2px; background: var(--ink2); transform: translateY(-4px); }
-.swatch-filtered { height: 4px; background: var(--accent); transform: translateY(-3px); }
-.btn-compact { align-self: flex-start; min-height: 48px; padding: 0 20px; }
+.legend-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.swatch {
+  flex-shrink: 0;
+  width: 22px;
+  border-radius: 2px;
+}
+.swatch-raw {
+  height: 2px;
+  background: var(--ink2);
+  transform: translateY(-4px);
+}
+.swatch-filtered {
+  height: 4px;
+  background: var(--accent);
+  transform: translateY(-3px);
+}
+/* Smaller buttons */
+.btn-compact {
+  align-self: flex-start;
+  min-height: 48px;
+  padding: 0 20px;
+}
 .btn-compact svg { width: 16px; height: 16px; }
 
-.history-list { margin-top: 12px; padding: 0; gap: 0; overflow: hidden; }
+
+/* PAST CHECK-INS */
+
+/* The list of past check-ins, with a line between each row */
+.history-list {
+  margin-top: 12px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
 .history-row {
   min-height: 68px;
   padding: 12px 16px 12px 20px;
@@ -733,25 +1099,45 @@ fieldset + .sub { margin-top: 10px; }
 }
 .history-row + .history-row { border-top: var(--hair) solid var(--line); }
 .history-row:active { background: var(--fill); }
-.history-text { flex-grow: 1; display: flex; flex-direction: column; gap: 2px; }
+.history-text {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .history-when { font-weight: 600; line-height: 1.3; }
-.chevron { width: 20px; height: 20px; color: var(--ink2); stroke-width: 2.2; }
+.chevron {
+  width: 20px;
+  height: 20px;
+  color: var(--ink2);
+  stroke-width: 2.2;
+}
 
+
+/* THE TAB BAR */
+
+/* Leave room under the tab screens for the tab bar */
 .tabbed { padding-bottom: calc(max(env(safe-area-inset-bottom), 8px) + 104px); }
 
+/* The tab bar along the bottom */
 .tabbar {
   position: fixed;
   z-index: 10;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 6px max(env(safe-area-inset-right), 12px) max(env(safe-area-inset-bottom), 8px) max(env(safe-area-inset-left), 12px);
+  padding:
+    6px
+    max(env(safe-area-inset-right), 12px)
+    max(env(safe-area-inset-bottom), 8px)
+    max(env(safe-area-inset-left), 12px);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   background: var(--surface);
   border-top: var(--hair) solid var(--line);
 }
 .tabbar[hidden] { display: none; }
+/* Each tab, with its icon above its name, in the accent color when it is the current tab */
 .tabbar a {
   position: relative;
   min-height: 58px;
@@ -777,6 +1163,7 @@ fieldset + .sub { margin-top: 10px; }
 }
 .tabbar a:active svg { transform: scale(0.9); }
 .tabbar a[aria-current="page"] { color: var(--accent); }
+/* The rounded highlight behind the current tab, which slides once it has been placed */
 .tab-lens {
   position: absolute;
   top: 9px;
@@ -789,15 +1176,28 @@ fieldset + .sub { margin-top: 10px; }
 }
 .tab-lens.placed { transition: transform 360ms var(--ease); }
 
+
+/* SETTINGS, HOW IT WORKS AND OTHER PIECES */
+
+/* An odd last chip fills the whole row */
 .chips > .chip:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
+/* Spacing for choices inside cards and on the settings tab */
 .card > fieldset:first-child { margin-top: 0; }
 .card > fieldset + fieldset { margin-top: 16px; }
 #screen-settings .section-title { margin-bottom: 12px; }
 
+/* Card titles */
 .card-title { font-size: calc(21 * var(--px)); line-height: 1.2; }
 
-.how { margin: 12px 0 0; padding: 4px 20px; gap: 0; list-style: none; counter-reset: step; }
+/* The numbered How it works steps */
+.how {
+  margin: 12px 0 0;
+  padding: 4px 20px;
+  gap: 0;
+  list-style: none;
+  counter-reset: step;
+}
 .how li {
   counter-increment: step;
   display: grid;
@@ -818,9 +1218,11 @@ fieldset + .sub { margin-top: 10px; }
   color: var(--accent);
   font-weight: 600;
 }
+/* The comparison card and lock note on the home page */
 #about-reference { margin-top: 12px; }
 .about-lock { margin-top: 24px; }
 
+/* Hidden on screen but still read by screen readers */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -830,49 +1232,85 @@ fieldset + .sub { margin-top: 10px; }
   white-space: nowrap;
 }
 
+/* On phones the results are one column */
 #results-body { display: flex; flex-direction: column; }
 .results-main, .results-side { display: contents; }
 
+
+/* WIDER SCREENS */
+
+/* On tablets, give drawing screens more room, keep the tabs from stretching, and show four exercises across */
 @media (min-width: 700px) {
   #screen-draw, #screen-exercise { max-width: 760px; }
   .tabbar { grid-template-columns: repeat(5, minmax(0, 160px)); justify-content: center; }
   .exercise-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* On wide screens */
 @media (min-width: 900px) {
+  /* Wider tab screens and results */
   .tabbed, #screen-results { max-width: 1040px; }
+  /* The dashboard in two columns, with the check-in and medication on the left and past check-ins on the right */
   #screen-dashboard {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-    grid-template-areas: "brand brand" "card title" "card list" "med list" "lock list";
+    grid-template-areas:
+      "brand brand"
+      "card title"
+      "card list"
+      "med list"
+      "lock list";
     grid-template-rows: auto auto auto auto 1fr;
     column-gap: 32px;
     align-content: start;
   }
   #screen-dashboard > .brand { grid-area: brand; }
-  #screen-dashboard > .checkin { grid-area: card; align-self: start; margin-top: 16px; }
+  #screen-dashboard > .checkin {
+    grid-area: card;
+    align-self: start;
+    margin-top: 16px;
+  }
   #screen-dashboard > .med { grid-area: med; align-self: start; }
   #screen-dashboard > .section-title { grid-area: title; margin-top: 16px; }
   #screen-dashboard > #history { grid-area: list; }
   #screen-dashboard > .actions { grid-area: lock; align-self: end; }
 
-  #results-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; align-items: start; }
+  /* The results in two columns, where the main result stays in view while scrolling */
+  #results-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 32px;
+    align-items: start;
+  }
   .results-main, .results-side { display: flex; flex-direction: column; }
   .results-main { position: sticky; top: 56px; }
   .results-side > .result-card:first-child { margin-top: 0; }
 
-  #screen-settings { display: block; columns: 2; column-gap: 32px; }
+  /* Settings in two columns */
+  #screen-settings {
+    display: block;
+    columns: 2;
+    column-gap: 32px;
+  }
   #screen-settings > h1 { column-span: all; }
   #screen-settings .section-title { break-after: avoid; }
   #screen-settings .card { break-inside: avoid; }
 
+  /* Testing, training and progress stay narrower */
   #screen-testing, #screen-training, #screen-progress { max-width: 760px; }
   #screen-settings .section-title:first-of-type { margin-top: 20px; }
 }
 
+
+/* THE ERROR SCREEN */
+
 #error-message { margin-top: 16px; color: var(--ink); }
 #error-message + .lede { margin-top: 12px; }
 
+
+/* COLLECTION MODE */
+
+/* Collection mode screens use bigger text and fill the whole iPad */
 .collect-screen {
   --body: calc(19 * var(--px));
   font-size: var(--body);
@@ -880,6 +1318,7 @@ fieldset + .sub { margin-top: 10px; }
   padding: 0;
 }
 
+/* The dark bar along the top */
 .topbar {
   display: flex;
   align-items: center;
@@ -896,13 +1335,18 @@ fieldset + .sub { margin-top: 10px; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-size: calc(15 * var(--px));
 }
-.topbar-brand { display: flex; align-items: center; gap: 10px; }
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .topbar-brand svg { width: 22px; height: 22px; }
 .topbar .mark { stroke: #f5f5f7; }
 .topbar .brand-name { font-size: inherit; letter-spacing: inherit; }
 .topbar-mode { color: #a1a1a6; }
 .topbar a { justify-content: flex-end; color: #2997ff; }
 
+/* The centered column under the bar */
 .col {
   flex-grow: 1;
   display: flex;
@@ -920,6 +1364,7 @@ fieldset + .sub { margin-top: 10px; }
 .col.centered > .bar,
 .col.centered > .actions { align-self: stretch; text-align: initial; }
 
+/* Bigger titles, buttons and cards */
 .collect-screen h1 {
   margin-top: 20px;
   font-size: calc(40 * var(--px));
@@ -942,6 +1387,7 @@ fieldset + .sub { margin-top: 10px; }
 }
 .collect-screen .card .lede { font-size: calc(17 * var(--px)); }
 
+/* The new and returning participant cards, side by side on tablets */
 .collect-grid {
   margin-top: 36px;
   display: grid;
@@ -952,6 +1398,7 @@ fieldset + .sub { margin-top: 10px; }
   .collect-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+/* The box that shows a new participant ID */
 .id-box {
   min-height: 104px;
   padding: 12px 16px;
@@ -963,15 +1410,33 @@ fieldset + .sub { margin-top: 10px; }
   justify-content: center;
   gap: 4px;
 }
-.id-label { font-size: calc(15 * var(--px)); font-weight: 600; color: var(--ink2); }
-.id-box .mono { font-size: calc(40 * var(--px)); font-weight: 600; letter-spacing: 0.08em; }
+.id-label {
+  font-size: calc(15 * var(--px));
+  font-weight: 600;
+  color: var(--ink2);
+}
+.id-box .mono {
+  font-size: calc(40 * var(--px));
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
 
-.form-card { margin-top: 28px; gap: 0; padding: 0; }
+/* The participant's details, with a line between each part */
+.form-card {
+  margin-top: 28px;
+  gap: 0;
+  padding: 0;
+}
 .form-card > * { padding: 22px 28px; }
 .form-card > * + * { border-top: var(--hair) solid var(--line); }
 .form-card fieldset { margin: 0; }
 .form-card .check { min-height: 0; }
-.form-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
 .form-row > label { flex: 0 0 180px; font-weight: 600; }
 .num-input {
   width: 140px;
@@ -988,12 +1453,32 @@ fieldset + .sub { margin-top: 10px; }
 .form-row .sub { flex: 1 1 200px; }
 #details-help[hidden] { display: none; }
 
-.returning-row { width: 100%; border: 0; border-top: var(--hair) solid var(--line); background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; padding-inline: 0; }
+/* Each returning participant */
+.returning-row {
+  width: 100%;
+  border: 0;
+  border-top: var(--hair) solid var(--line);
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  padding-inline: 0;
+}
 .returning-row .history-when { font-size: calc(21 * var(--px)); letter-spacing: 0.06em; }
 
-.export-card { margin-top: 24px; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+/* The card for sessions that aren't exported yet */
+.export-card {
+  margin-top: 24px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
 .export-card h2 { font-size: calc(21 * var(--px)); }
 
+/* The session summary on the last screen */
 .facts {
   margin: 36px 0 0;
   width: min(100%, 600px);
@@ -1005,17 +1490,35 @@ fieldset + .sub { margin-top: 10px; }
 }
 .facts div { padding: 16px 0; }
 .facts div:nth-child(n + 3) { border-top: var(--hair) solid var(--line); }
-.facts dd { margin: 2px 0 0; font-weight: 600; font-size: calc(19 * var(--px)); }
+.facts dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  font-size: calc(19 * var(--px));
+}
 
-#collect-progress { margin-top: 8px; width: 180px; gap: 8px; }
+/* The drawing screen */
+#collect-progress {
+  margin-top: 8px;
+  width: 180px;
+  gap: 8px;
+}
 #collect-progress span { height: 6px; }
-#screen-collect-draw .lede { margin-top: 24px; max-width: 620px; text-wrap: balance; }
+#screen-collect-draw .lede {
+  margin-top: 24px;
+  max-width: 620px;
+  text-wrap: balance;
+}
 #screen-collect-draw .pad { margin-top: 28px; width: min(100%, 680px, calc(100svh - 420px)); }
 #screen-collect-draw .actions,
-#screen-collect-done .actions { width: 100%; max-width: 680px; align-self: center; }
+#screen-collect-done .actions {
+  width: 100%;
+  max-width: 680px;
+  align-self: center;
+}
 #screen-collect-done .actions { max-width: 600px; }
 #screen-collect-done .col { padding-top: 96px; }
 
+/* The check mark on the last screen */
 .done-mark {
   width: 96px;
   height: 96px;
@@ -1025,13 +1528,23 @@ fieldset + .sub { margin-top: 10px; }
   display: grid;
   place-items: center;
 }
-.done-mark svg { width: 46px; height: 46px; stroke-width: 2.4; }
+.done-mark svg {
+  width: 46px;
+  height: 46px;
+  stroke-width: 2.4;
+}
 #screen-collect-done h1 { margin-top: 28px; }
 #screen-collect-done .lede { max-width: 560px; text-wrap: balance; }
 
+
+/* ANIMATIONS */
+
+/* Moving between screens with view transitions, where the tab bar and the compact title bar stay in place */
 .tabbar { view-transition-name: tabbar; }
 .compact-bar { view-transition-name: compact-bar; }
+/* Screens don't play their own slide in when view transitions work */
 :root.vt-ok .screen { animation: none; }
+/* Each kind of change, picked by swap() in motion.js */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation-duration: 360ms; animation-timing-function: var(--ease); }
 :root[data-vt="fade"]::view-transition-old(root) { animation-name: vt-fade-out; animation-duration: 160ms; }
@@ -1042,6 +1555,7 @@ fieldset + .sub { margin-top: 10px; }
 :root[data-vt="right"]::view-transition-new(root) { animation-name: vt-in-left; }
 :root[data-vt="theme"]::view-transition-old(root) { animation: none; }
 :root[data-vt="theme"]::view-transition-new(root) { animation: vt-reveal 640ms var(--ease); }
+/* The keyframes for each kind of change */
 @keyframes vt-fade-out { to { opacity: 0; } }
 @keyframes vt-rise { from { opacity: 0; transform: translateY(12px); } }
 @keyframes vt-out-left { to { opacity: 0; transform: translateX(-32px); } }
@@ -1053,6 +1567,7 @@ fieldset + .sub { margin-top: 10px; }
   to { clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 50%)); }
 }
 
+/* Chips and checkboxes pop when picked, and chips show a check mark */
 @keyframes pop { from { transform: scale(0.94); } }
 .chip input:checked + span,
 .check input:checked { animation: pop 260ms var(--ease); }
@@ -1067,9 +1582,11 @@ fieldset + .sub { margin-top: 10px; }
   mask: var(--checkmark) center / contain no-repeat;
   animation: checkmark-in 360ms var(--ease);
 }
+/* The check mark shape */
 :root { --checkmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 @keyframes checkmark-in { from { transform: scale(0) rotate(-30deg); opacity: 0; } }
 
+/* Items that fade in one after another as they scroll into view */
 .reveal {
   opacity: 0;
   transform: translateY(14px);
@@ -1079,14 +1596,18 @@ fieldset + .sub { margin-top: 10px; }
 }
 .reveal.in { opacity: 1; transform: none; }
 
+/* Measure dots wait until their row scrolls into view */
 .measure.reveal:not(.in) .track-dot { visibility: hidden; animation: none; }
 .measure.in .track-dot { animation-duration: 640ms; }
+/* Numbers keep the same width as they count */
 .num { font-variant-numeric: tabular-nums; }
 
+/* Level bars and progress segments fill from the left */
 .level.on .level-bar { transform-origin: left; animation: fill-in 760ms var(--ease) 260ms backwards; }
 .segments .now { transform-origin: left; animation: fill-in 560ms var(--ease) backwards; }
 @keyframes fill-in { from { transform: scaleX(0); } }
 
+/* The compact title bar, which slides down once the large title scrolls away */
 .compact-bar {
   position: fixed;
   z-index: 9;
@@ -1106,9 +1627,15 @@ fieldset + .sub { margin-top: 10px; }
   transition: opacity 220ms var(--ease), transform 380ms var(--ease);
   pointer-events: none;
 }
-.compact-bar span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.compact-bar span {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .compact-bar.show { opacity: 1; transform: none; }
 
+/* The short message that pops up above the tab bar, with a check mark that draws itself */
 .toast {
   position: fixed;
   z-index: 11;
@@ -1129,11 +1656,22 @@ fieldset + .sub { margin-top: 10px; }
   transition: opacity 200ms var(--ease), transform 420ms var(--ease);
   pointer-events: none;
 }
-.toast svg { width: 20px; height: 20px; color: var(--bg); stroke-width: 2.6; stroke-dasharray: 24; stroke-dashoffset: 24; }
+.toast svg {
+  width: 20px;
+  height: 20px;
+  color: var(--bg);
+  stroke-width: 2.6;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
 .toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 .toast.show svg { animation: draw-checkmark 380ms var(--ease) 140ms forwards; }
 @keyframes draw-checkmark { to { stroke-dashoffset: 0; } }
 
+
+/* SETTINGS CONTROLS */
+
+/* The three way switches for theme and motion, where a thumb slides under the picked choice */
 .segmented {
   position: relative;
   margin-top: 12px;
@@ -1159,8 +1697,19 @@ fieldset + .sub { margin-top: 10px; }
 .segmented:has(.segment:nth-child(2) input:checked) { --seg: 1; }
 .segmented:has(.segment:nth-child(3) input:checked) { --seg: 2; }
 .segmented:not(:has(input:checked))::before { opacity: 0; }
-.segment { position: relative; z-index: 1; display: grid; cursor: pointer; }
-.segment input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.segment {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  cursor: pointer;
+}
+.segment input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 .segment span {
   min-height: 44px;
   display: flex;
@@ -1173,10 +1722,19 @@ fieldset + .sub { margin-top: 10px; }
 }
 .segment input:checked + span { font-weight: 600; }
 .segment input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 1px; }
+/* The thumb's color */
 :root { --seg-thumb: #ffffff; }
 
-.legend-split { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+/* The accent color title, with the color's name on the right */
+.legend-split {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
 .legend-value { font-weight: 400; color: var(--ink2); }
+/* The accent color picker, seven across */
 .accents {
   margin: 8px -6px 0;
   display: grid;
@@ -1190,7 +1748,13 @@ fieldset + .sub { margin-top: 10px; }
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.accent-option input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.accent-option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 .accent-dot {
   width: 32px;
   height: 32px;
@@ -1213,6 +1777,7 @@ fieldset + .sub { margin-top: 10px; }
   animation: checkmark-in 260ms var(--ease);
 }
 .accent-option input:focus-visible + .accent-dot { outline: 3px solid var(--accent); outline-offset: 5px; }
+/* Each swatch's color in light mode */
 .accent-option[data-accent="blue"] { --sw: #0066cc; }
 .accent-option[data-accent="indigo"] { --sw: #4f46e5; }
 .accent-option[data-accent="violet"] { --sw: #7c3aed; }
@@ -1220,6 +1785,7 @@ fieldset + .sub { margin-top: 10px; }
 .accent-option[data-accent="amber"] { --sw: #a65200; }
 .accent-option[data-accent="rose"] { --sw: #c2185b; }
 .accent-option[data-accent="graphite"] { --sw: #4a4a4f; }
+/* Each swatch's color in dark mode */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) { --seg-thumb: #636366; }
   :root:not([data-theme="light"]) .accent-option[data-accent="blue"] { --sw: #0071e3; }
@@ -1230,6 +1796,7 @@ fieldset + .sub { margin-top: 10px; }
   :root:not([data-theme="light"]) .accent-option[data-accent="rose"] { --sw: #c7206a; }
   :root:not([data-theme="light"]) .accent-option[data-accent="graphite"] { --sw: #5a5a60; }
 }
+/* The same when dark was picked */
 :root[data-theme="dark"] { --seg-thumb: #636366; }
 :root[data-theme="dark"] .accent-option[data-accent="blue"] { --sw: #0071e3; }
 :root[data-theme="dark"] .accent-option[data-accent="indigo"] { --sw: #5b54e8; }
@@ -1239,28 +1806,71 @@ fieldset + .sub { margin-top: 10px; }
 :root[data-theme="dark"] .accent-option[data-accent="rose"] { --sw: #c7206a; }
 :root[data-theme="dark"] .accent-option[data-accent="graphite"] { --sw: #5a5a60; }
 
-.mascot { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* THE MASCOT */
+
+/* The mascot fills its slot */
+.mascot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
 .mascot * { transform-box: view-box; }
-.m-shell { fill: none; stroke: var(--accent); stroke-width: 26; stroke-linecap: round; }
+/* Its shell, its face, and its eyes, which blink */
+.m-shell {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 26;
+  stroke-linecap: round;
+}
 .m-face { fill: var(--accent); }
-.m-eyes { fill: #ffffff; transform-origin: 170px 166px; animation: blink 5.2s infinite; }
+.m-eyes {
+  fill: #ffffff;
+  transform-origin: 170px 166px;
+  animation: blink 5.2s infinite;
+}
 .m-body, .m-look { transform-origin: 170px 170px; }
+/* It bobs when idle, traces its shell and sways while thinking, and spins when tapped */
 .mascot.idle .m-body { animation: bob 3.4s ease-in-out infinite; }
 .mascot.thinking .m-shell { stroke-dasharray: 0.6 0.4; animation: trace 1.8s linear infinite; }
 .mascot.thinking .m-body { animation: sway 2.6s ease-in-out infinite; }
 .mascot.thinking .m-look { animation: look 2.8s ease-in-out infinite; }
 .mascot.spin .m-body { animation: m-spin 820ms var(--ease); }
-@keyframes blink { 0%, 90%, 100% { transform: scaleY(1); } 93% { transform: scaleY(0.1); } }
+/* The keyframes for each move */
+@keyframes blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  93% { transform: scaleY(0.1); }
+}
 @keyframes bob { 50% { transform: translateY(-10px); } }
 @keyframes trace { to { stroke-dashoffset: -1; } }
-@keyframes sway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
-@keyframes look { 0%, 100% { transform: translateX(-10px); } 50% { transform: translateX(10px); } }
-@keyframes m-spin { 40% { transform: rotate(200deg) scale(0.86); } 100% { transform: rotate(360deg); } }
+@keyframes sway {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
+@keyframes look {
+  0%, 100% { transform: translateX(-10px); }
+  50% { transform: translateX(10px); }
+}
+@keyframes m-spin {
+  40% { transform: rotate(200deg) scale(0.86); }
+  100% { transform: rotate(360deg); }
+}
 
-.brand-mascot { width: 36px; height: 36px; flex-shrink: 0; cursor: pointer; }
+/* Where the mascot shows on the dashboard */
+.brand-mascot {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
 .card.empty { align-items: center; text-align: center; }
 .empty-mascot { width: 72px; height: 72px; }
 
+
+/* THE MEASURING SCREEN */
+
+/* The screen that covers everything while a check-in is scored, fading in */
 .measuring {
   position: fixed;
   z-index: 20;
@@ -1274,6 +1884,7 @@ fieldset + .sub { margin-top: 10px; }
 }
 .measuring[hidden] { display: none; }
 .measuring.show { opacity: 1; }
+/* Its card, which rises a little as it shows */
 .measuring-card {
   width: min(100%, 360px);
   display: flex;
@@ -1284,10 +1895,27 @@ fieldset + .sub { margin-top: 10px; }
   transition: transform 460ms var(--ease);
 }
 .measuring.show .measuring-card { transform: none; }
+/* The mascot and the title */
 .measuring-mascot { width: 120px; height: 120px; }
 .measuring-title { font-size: calc(24 * var(--px)); font-weight: 600; }
-.measuring-steps { align-self: stretch; margin: 4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
-.measuring-steps li { display: flex; align-items: center; gap: 12px; color: var(--ink2); opacity: 0.45; transition: opacity 320ms, color 320ms; }
+/* The steps, which light up and get a check mark one at a time */
+.measuring-steps {
+  align-self: stretch;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.measuring-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink2);
+  opacity: 0.45;
+  transition: opacity 320ms, color 320ms;
+}
 .measuring-steps li::before {
   content: "";
   flex-shrink: 0;
@@ -1303,9 +1931,18 @@ fieldset + .sub { margin-top: 10px; }
   animation: pop 260ms var(--ease);
 }
 
-.pen-dot { fill: var(--accent); opacity: 0; animation: fade-in 500ms ease 3s forwards; }
+
+/* SMALL EFFECTS */
+
+/* The dot that follows the home page spiral, which fades in after 3 seconds */
+.pen-dot {
+  fill: var(--accent);
+  opacity: 0;
+  animation: fade-in 500ms ease 3s forwards;
+}
 @keyframes fade-in { to { opacity: 1; } }
 
+/* The soft glow under the pen tip */
 .pen-tip {
   position: absolute;
   top: 0;
@@ -1320,6 +1957,7 @@ fieldset + .sub { margin-top: 10px; }
   pointer-events: none;
 }
 .pen-tip.on { opacity: 1; }
+/* The drawing area fades for a moment when it is cleared, and the message card shakes */
 .pad.wipe { animation: wipe 320ms var(--ease); }
 @keyframes wipe { 50% { opacity: 0; transform: scale(0.96); } }
 .status.shake { animation: shake 440ms var(--ease); }
@@ -1330,8 +1968,10 @@ fieldset + .sub { margin-top: 10px; }
   80% { transform: translateX(2px); }
 }
 
+/* The arrow on a past check-in moves right when pressed */
 .chevron { transition: transform 220ms var(--ease); }
 .history-row:active .chevron { transform: translateX(4px); }
+/* Hover colors for a mouse or trackpad */
 @media (hover: hover) and (pointer: fine) {
   .btn-primary:hover { background: color-mix(in srgb, var(--accent-fill) 88%, #000000); }
   .btn-secondary:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
@@ -1339,6 +1979,10 @@ fieldset + .sub { margin-top: 10px; }
   .history-row:hover .chevron { transform: translateX(3px); }
 }
 
+
+/* REDUCED MOTION */
+
+/* With reduced motion, animations and transitions finish straight away */
 :root[data-motion="reduce"] *,
 :root[data-motion="reduce"] *::before,
 :root[data-motion="reduce"] *::after {
@@ -1348,11 +1992,16 @@ fieldset + .sub { margin-top: 10px; }
   transition-duration: 0.01ms !important;
   transition-delay: 0ms !important;
 }
+/* Pressed buttons, chips and swatches don't shrink, and the home page pen dot is hidden */
 :root[data-motion="reduce"] .btn:active:not(:disabled),
 :root[data-motion="reduce"] .chip:active span,
 :root[data-motion="reduce"] .accent-option:active .accent-dot { transform: none; }
 :root[data-motion="reduce"] .pen-dot { display: none; }
 
+
+/* HIGH CONTRAST */
+
+/* With high contrast, lines are darker and thicker */
 @media (prefers-contrast: more) {
   :root { --line: #8a8a8a; --hair: 2px; }
 

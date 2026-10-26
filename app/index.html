@@ -1,41 +1,74 @@
 <!doctype html>
+<!-- INDEX.HTML HOLDS EVERY SCREEN OF THE APP -->
+<!-- APP.JS SHOWS ONE SCREEN AT A TIME AND FILLS IN THE SENTENCES FROM COPY.JS -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
+
+  <!-- Fit the page to the screen, and match the phone's top bar to light and dark mode -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+
+  <!-- Let the app run full screen when it is added to the home screen of an iPhone or iPad -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="NeuroTrace">
+
+  <!-- The description, the tab title and the icon -->
   <meta name="description" content="NeuroTrace turns an ordinary phone into a motor-function measurement tool.">
   <title>NeuroTrace</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+
+  <!-- Load the two fonts early so the text doesn't switch fonts after it shows -->
   <link rel="preload" href="fonts/atkinson-hyperlegible-next-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/newsreader-latin-opsz.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
+
   <script>
-    // before first paint: the saved look, so the page never flashes the wrong
-    // theme or plays motion someone switched off. same rules as motion.js
-    // applyMotion() and app.js applyTheme().
+    // Before the first paint, put on the saved look so the page never flashes the wrong theme
+    // or plays motion someone switched off
+    // These are the same rules as applyMotion() in motion.js and applyTheme() in app.js
     try {
-      const p = JSON.parse(localStorage.getItem("neurotrace:prefs") || "{}"), r = document.documentElement;
-      if (p.theme === "light" || p.theme === "dark") r.dataset.theme = p.theme;
-      if (p.accent && p.accent !== "blue") r.dataset.accent = p.accent;
-      r.dataset.motion = p.motion === "reduce" || (p.motion !== "full" && matchMedia("(prefers-reduced-motion: reduce)").matches) ? "reduce" : "full";
-    } catch {}
+
+      // Read the saved settings and find the page's root element
+      const p = JSON.parse(localStorage.getItem("neurotrace:prefs") || "{}");
+      const r = document.documentElement;
+
+      // Use the saved theme if it is light or dark, otherwise follow the device
+      if (p.theme === "light" || p.theme === "dark") {
+        r.dataset.theme = p.theme;
+      }
+
+      // Use the saved accent color, since blue is the default
+      if (p.accent && p.accent !== "blue") {
+        r.dataset.accent = p.accent;
+      }
+
+      // Reduce motion if it was set to reduced, or if it isn't set to full and the device asks for less motion
+      let motion = "full";
+      if (p.motion === "reduce" || (p.motion !== "full" && matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+        motion = "reduce";
+      }
+      r.dataset.motion = motion;
+    } catch {
+
+      // If the saved settings can't be read, keep the defaults
+    }
   </script>
+
+  <!-- The app itself -->
   <script type="module" src="app.js"></script>
 </head>
 <body>
-<!-- one <section class="screen"> per route (#home, #dashboard, ...) - app.js
-     shows one at a time. full sentences get filled in from copy.js through
-     data-copy (Global Constraint 10), the markup only holds headings and
-     control labels. -->
+<!-- Each route like #home or #dashboard has one <section class="screen">, and app.js shows one at a time -->
+<!-- Full sentences are filled in from copy.js through data-copy (Global Constraint 10), so the markup only holds headings and control labels -->
 
-<!-- ================= signed out: home only. then the check-in flow ================= -->
 
+<!-- THE HOME PAGE, WHICH IS ALL YOU SEE WHEN SIGNED OUT, AND THEN THE CHECK-IN STEPS -->
+
+<!-- The home page -->
 <section class="screen" id="screen-home" data-title="Home" hidden>
   <header class="brand">
     <svg viewBox="0 0 340 340" aria-hidden="true"><path class="mark"/></svg>
@@ -45,7 +78,11 @@
     <svg viewBox="0 0 340 340" role="img" aria-label="A spiral traced by hand over the on-screen guide">
       <path class="art-guide"/>
       <path class="art-trace draw-in" id="hero-trace" pathLength="1"/>
-      <circle class="pen-dot" r="9"><animateMotion dur="7s" begin="3s" repeatCount="indefinite" calcMode="linear"><mpath href="#hero-trace"/></animateMotion></circle>
+      <circle class="pen-dot" r="9">
+        <animateMotion dur="7s" begin="3s" repeatCount="indefinite" calcMode="linear">
+          <mpath href="#hero-trace"/>
+        </animateMotion>
+      </circle>
     </svg>
   </div>
   <h1 tabindex="-1">Measure how you move.</h1>
@@ -59,16 +96,20 @@
     <p data-copy="NOT_A_DIAGNOSIS"></p>
   </div>
   <h2 class="section-title">How it works</h2>
-  <ol class="card how" id="how-steps"><!-- copy.HOW_STEPS, from app.js --></ol>
+  <ol class="card how" id="how-steps"><!-- Filled in by app.js with copy.HOW_STEPS --></ol>
   <h2 class="section-title">Who you are compared with</h2>
   <p class="card" id="about-reference"></p>
   <p class="lock about-lock">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="11" width="14" height="10" rx="2"/>
+      <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+    </svg>
     <span data-copy="ON_DEVICE"></span>
   </p>
   <p class="sub center home-credit" data-copy="CREDIT"></p>
 </section>
 
+<!-- The consent boxes before a check-in -->
 <section class="screen" id="screen-consent" data-title="Before you start" hidden>
   <div class="bar">
     <a class="back" href="#home"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
@@ -91,6 +132,7 @@
   </div>
 </section>
 
+<!-- Your age and drawing hand -->
 <section class="screen" id="screen-about" data-title="About you" hidden>
   <div class="bar">
     <a class="back" id="about-back" href="#consent"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Back</a>
@@ -102,7 +144,7 @@
   <p class="lede" data-copy="ABOUT_WHY"></p>
   <fieldset>
     <legend>Your age</legend>
-    <div class="chips" id="age-choices"><!-- one chip per copy.AGE_CHOICES, from app.js --></div>
+    <div class="chips" id="age-choices"><!-- One chip per copy.AGE_CHOICES, filled in by app.js --></div>
   </fieldset>
   <fieldset aria-describedby="hand-help">
     <legend>Drawing hand</legend>
@@ -117,6 +159,7 @@
   </div>
 </section>
 
+<!-- Tracing the spiral -->
 <section class="screen" id="screen-draw" data-title="Trace the spiral" hidden>
   <div class="bar">
     <a class="bar-link" href="#testing">Cancel</a>
@@ -130,7 +173,11 @@
   <div class="pad"><canvas id="draw-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas></div>
   <div role="status">
     <p class="card status" id="draw-status" hidden>
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/></svg>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 11v6"/>
+        <path d="M12 7.5v.01"/>
+      </svg>
       <span><strong></strong><span></span></span>
     </p>
   </div>
@@ -140,6 +187,7 @@
   </div>
 </section>
 
+<!-- The results of a check-in -->
 <section class="screen" id="screen-results" data-title="Results" hidden>
   <div class="meta-row">
     <span class="sub" id="results-meta"></span>
@@ -153,8 +201,8 @@
   </div>
 </section>
 
-<!-- one training exercise (app.js, train.js). no tab bar: it's a focused
-     task with its own way back to Training. -->
+<!-- One training exercise, run by app.js and train.js -->
+<!-- It has no tab bar since it is a focused task with its own way back to Training -->
 <section class="screen" id="screen-exercise" data-title="Exercise" hidden>
   <div class="bar">
     <a class="back" href="#training"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Training</a>
@@ -168,7 +216,11 @@
   <div class="pad pad-wide" hidden><canvas id="ex-tap" role="img" aria-label="Tapping area. Circles appear here one at a time."></canvas></div>
   <div role="status">
     <p class="card status" id="ex-status" hidden>
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/></svg>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 11v6"/>
+        <path d="M12 7.5v.01"/>
+      </svg>
       <span><strong></strong><span></span></span>
     </p>
   </div>
@@ -186,8 +238,9 @@
   <button type="button" class="text-btn" id="ex-too-hard">Too hard today</button>
 </section>
 
-<!-- ================= tabs: dashboard, testing, training, progress, settings ================= -->
+<!-- THE DASHBOARD, TESTING, TRAINING, PROGRESS AND SETTINGS TABS -->
 
+<!-- The dashboard, with the check-in, your medication and your past check-ins -->
 <section class="screen tabbed" id="screen-dashboard" data-title="Dashboard" hidden>
   <header class="brand">
     <span class="brand-mascot" data-mascot="idle"></span>
@@ -220,16 +273,23 @@
 
   <h2 class="section-title">Your check-ins</h2>
   <div id="history">
-    <div class="card empty"><span class="empty-mascot" data-mascot="idle"></span><p data-copy="HISTORY_EMPTY"></p></div>
+    <div class="card empty">
+      <span class="empty-mascot" data-mascot="idle"></span>
+      <p data-copy="HISTORY_EMPTY"></p>
+    </div>
   </div>
   <div class="actions">
     <p class="lock">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5" y="11" width="14" height="10" rx="2"/>
+        <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+      </svg>
       <span data-copy="ON_DEVICE"></span>
     </p>
   </div>
 </section>
 
+<!-- The testing tab -->
 <section class="screen tabbed" id="screen-testing" data-title="Testing" hidden>
   <h1 tabindex="-1">Testing</h1>
   <p class="lede" data-copy="TESTING_BLURB"></p>
@@ -245,15 +305,17 @@
   </div>
 </section>
 
-<!-- the exercise cards are real (app.js fills in each level). Today's focus
-     and This week are still sample layouts and say so (ClaimsRules, demo and
-     data honesty). -->
+<!-- The training tab, where the exercise cards are real and app.js fills in each level -->
+<!-- Today's focus and This week are still sample layouts and say so, following the demo and data honesty part of ClaimsRules -->
 <section class="screen tabbed" id="screen-training" data-title="Training" hidden>
   <h1 tabindex="-1">Training</h1>
   <p class="lede" data-copy="TRAINING_BLURB"></p>
   <h2 class="section-title">Today&rsquo;s focus</h2>
   <div class="card focus">
-    <div class="card-head"><h3 class="card-title">Steady tracing</h3><span class="pill">Sample</span></div>
+    <div class="card-head">
+      <h3 class="card-title">Steady tracing</h3>
+      <span class="pill">Sample</span>
+    </div>
     <p class="sub">Level 4 &middot; about 8 minutes</p>
     <p data-copy="TRAINING_WHY"></p>
     <p class="sub" data-copy="FOCUS_SAMPLE"></p>
@@ -261,10 +323,26 @@
   </div>
   <h2 class="section-title">All exercises</h2>
   <div class="exercise-grid">
-    <button type="button" class="card exercise" data-exercise="big-writing"><span class="exercise-name">Big writing</span><span class="sub"></span><span class="sub"></span></button>
-    <button type="button" class="card exercise" data-exercise="rhythm"><span class="exercise-name">Rhythm</span><span class="sub"></span><span class="sub"></span></button>
-    <button type="button" class="card exercise" data-exercise="steady-tracing"><span class="exercise-name">Steady tracing</span><span class="sub"></span><span class="sub"></span></button>
-    <button type="button" class="card exercise" data-exercise="hand-skills"><span class="exercise-name">Hand skills</span><span class="sub"></span><span class="sub"></span></button>
+    <button type="button" class="card exercise" data-exercise="big-writing">
+      <span class="exercise-name">Big writing</span>
+      <span class="sub"></span>
+      <span class="sub"></span>
+    </button>
+    <button type="button" class="card exercise" data-exercise="rhythm">
+      <span class="exercise-name">Rhythm</span>
+      <span class="sub"></span>
+      <span class="sub"></span>
+    </button>
+    <button type="button" class="card exercise" data-exercise="steady-tracing">
+      <span class="exercise-name">Steady tracing</span>
+      <span class="sub"></span>
+      <span class="sub"></span>
+    </button>
+    <button type="button" class="card exercise" data-exercise="hand-skills">
+      <span class="exercise-name">Hand skills</span>
+      <span class="sub"></span>
+      <span class="sub"></span>
+    </button>
   </div>
   <h2 class="section-title">This week</h2>
   <div class="card week">
@@ -278,19 +356,21 @@
   </div>
 </section>
 
+<!-- The progress tab -->
 <section class="screen tabbed" id="screen-progress" data-title="Progress" hidden>
   <h1 tabindex="-1">Progress</h1>
   <p class="lede" data-copy="PROGRESS_BLURB"></p>
-  <div id="progress-body"><!-- first vs latest check-in, from app.js --></div>
+  <div id="progress-body"><!-- The first and latest check-in side by side, filled in by app.js --></div>
 </section>
 
+<!-- The settings tab -->
 <section class="screen tabbed" id="screen-settings" data-title="Settings" hidden>
   <h1 tabindex="-1">Settings</h1>
   <h2 class="section-title">Your details</h2>
   <div class="card">
     <fieldset>
       <legend>Age group</legend>
-      <div class="chips" id="settings-age"><!-- one chip per copy.AGE_CHOICES, from app.js --></div>
+      <div class="chips" id="settings-age"><!-- One chip per copy.AGE_CHOICES, filled in by app.js --></div>
     </fieldset>
     <fieldset>
       <legend>Drawing hand</legend>
@@ -314,7 +394,7 @@
     <p class="sub" id="appearance-help" data-copy="APPEARANCE_HELP"></p>
     <fieldset aria-describedby="accent-help">
       <legend class="legend-split">Accent color <span class="legend-value" id="accent-current"></span></legend>
-      <div class="accents" id="accent-choices"><!-- one swatch per copy.ACCENTS, from app.js --></div>
+      <div class="accents" id="accent-choices"><!-- One swatch per copy.ACCENTS, filled in by app.js --></div>
     </fieldset>
     <p class="sub" id="accent-help" data-copy="ACCENT_HELP"></p>
   </div>
@@ -350,6 +430,7 @@
   </div>
 </section>
 
+<!-- Shown when a check-in can't be scored -->
 <section class="screen" id="screen-error" data-title="Error" hidden>
   <h1 tabindex="-1">We can't show results</h1>
   <p class="lede" id="error-message"></p>
@@ -359,8 +440,9 @@
   </div>
 </section>
 
-<!-- ================= collection mode (facilitator, iPad) ================= -->
+<!-- COLLECTION MODE, RUN BY THE RESEARCH TEAM ON AN IPAD -->
 
+<!-- Picking a new or returning participant -->
 <section class="screen collect-screen" id="screen-collect" data-title="Tester collection" hidden>
   <header class="topbar">
     <div class="topbar-brand">
@@ -395,6 +477,7 @@
   </div>
 </section>
 
+<!-- The participant's details -->
 <section class="screen collect-screen" id="screen-collect-details" data-title="About the participant" hidden>
   <header class="topbar">
     <div class="topbar-brand">
@@ -446,6 +529,7 @@
   </div>
 </section>
 
+<!-- Drawing the three spirals -->
 <section class="screen collect-screen" id="screen-collect-draw" data-title="Collection spiral" hidden>
   <header class="topbar">
     <div class="topbar-brand">
@@ -466,18 +550,26 @@
     <p class="lede" data-copy="COLLECT_DRAW_INSTRUCTION"></p>
     <div class="pad"><canvas id="collect-pad" role="img" aria-label="Drawing area with the spiral guide"></canvas></div>
     <p class="card status" id="collect-status" hidden>
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5v.01"/></svg>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M12 11v6"/>
+        <path d="M12 7.5v.01"/>
+      </svg>
       <span><strong></strong><span></span></span>
     </p>
     <div class="actions pair">
       <button type="button" class="btn btn-secondary" id="collect-redo">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7 7 0 1 0 1.6-7.3L4 10"/></svg>Redo this spiral
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 4v6h6"/>
+          <path d="M5.5 15a7 7 0 1 0 1.6-7.3L4 10"/>
+        </svg>Redo this spiral
       </button>
       <button type="button" class="btn btn-primary" id="collect-next" disabled>Next spiral</button>
     </div>
   </div>
 </section>
 
+<!-- The end of a session -->
 <section class="screen collect-screen" id="screen-collect-done" data-title="Session saved" hidden>
   <header class="topbar">
     <div class="topbar-brand">
@@ -493,18 +585,30 @@
     <div id="done-summary"></div>
     <div class="actions">
       <button type="button" class="btn btn-primary" id="done-export">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>Export session
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v12"/>
+          <path d="M8 7l4-4 4 4"/>
+          <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>
+        </svg>Export session
       </button>
       <a class="btn btn-secondary" href="#collect">Next participant</a>
     </div>
   </div>
 </section>
 
-<!-- the tab bar: only on the five tab screens, which need a login (app.js). -->
+
+<!-- THE PARTS SHARED BY EVERY SCREEN -->
+
+<!-- The tab bar, only shown on the five tab screens, which need a login -->
 <nav class="tabbar" id="tabbar" aria-label="Main" hidden>
   <span class="tab-lens" aria-hidden="true"></span>
   <a href="#dashboard" data-tab="dashboard">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="4" width="7" height="7" rx="1.5"/>
+      <rect x="13" y="4" width="7" height="7" rx="1.5"/>
+      <rect x="4" y="13" width="7" height="7" rx="1.5"/>
+      <rect x="13" y="13" width="7" height="7" rx="1.5"/>
+    </svg>
     <span>Dashboard</span>
   </a>
   <a href="#testing" data-tab="testing">
@@ -512,29 +616,44 @@
     <span>Testing</span>
   </a>
   <a href="#training" data-tab="training">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="6" width="3" height="12" rx="1"/><rect x="16" y="6" width="3" height="12" rx="1"/><rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><path d="M8 12h8"/></svg>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="5" y="6" width="3" height="12" rx="1"/>
+      <rect x="16" y="6" width="3" height="12" rx="1"/>
+      <rect x="2" y="9" width="3" height="6" rx="1"/>
+      <rect x="19" y="9" width="3" height="6" rx="1"/>
+      <path d="M8 12h8"/>
+    </svg>
     <span>Training</span>
   </a>
   <a href="#progress" data-tab="progress">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M5 16l4-5 4 3 6-8"/></svg>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 20h16"/>
+      <path d="M5 16l4-5 4 3 6-8"/>
+    </svg>
     <span>Progress</span>
   </a>
   <a href="#settings" data-tab="settings">
-    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h9M17 7h3M4 17h3M11 17h9"/>
+      <circle cx="15" cy="7" r="2"/>
+      <circle cx="9" cy="17" r="2"/>
+    </svg>
     <span>Settings</span>
   </a>
 </nav>
-<!-- compact title bar: the screen's h1, shown once the large title scrolls away. -->
+
+<!-- The compact title bar, which shows the screen's h1 once the large title scrolls away -->
 <div class="compact-bar" id="compact-bar" aria-hidden="true"><span></span></div>
 
+<!-- The short message that pops up, like Saved -->
 <div class="toast" id="toast" role="status"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span></span></div>
 
-<!-- shown while a finished check-in is scored and saved (motion.js measuring()). -->
+<!-- Shown while a finished check-in is scored and saved, by measuring() in motion.js -->
 <div class="measuring" id="measuring" role="status" hidden>
   <div class="measuring-card">
     <span class="measuring-mascot" data-mascot="thinking"></span>
     <p class="measuring-title" data-copy="MEASURING"></p>
-    <ol class="measuring-steps" id="measuring-steps"><!-- copy.MEASURE_STEPS, from app.js --></ol>
+    <ol class="measuring-steps" id="measuring-steps"><!-- Filled in by app.js with copy.MEASURE_STEPS --></ol>
   </div>
 </div>
 </body>
