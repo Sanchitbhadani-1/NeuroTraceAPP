@@ -1,159 +1,135 @@
+# PREPROCESS.PY CLEANS UP A RAW DRAWING BEFORE ANY MEASUREMENTS ARE TAKEN
+# THE STEPS RUN IN THE SAME ORDER AS CLEANUP IN NT-FEATURES.JS
+
 import numpy as np
 from scipy.signal import butter, filtfilt
 
 
-# Center on the origin, then scale to unit RMS radius
+# Center the drawing on the origin and scale it to an average distance of 1
 def normalize(x, y):
+
+    # Center every x and y value on the origin
     x = x - np.mean(x)
-    # Center every value of x on the origin 
-
     y = y - np.mean(y)
-    # Center every value of y on the origin
 
+    # Find the average distance of each point from the origin and divide by it
     scale = np.sqrt(np.mean(x**2 + y**2))
-    # Find average distance from origin of each point, save it as a scale
-
     return x / scale, y / scale
 
 
-
+# Put the drawing on an even grid of 100 points per second
 def resample_uniform(t, x, y, fs=100.0):
+
+    # Turn the times and positions into number arrays
     t = np.asarray(t, dtype=float)
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
 
+    # Stop if any point goes backward in time
     if np.any(np.diff(t) <= 0):
-    # Checks if any samples are marked as going backward in time
-
         raise ValueError("timestamps must be strictly increasing")
 
+    # Make new evenly spaced times from the first point to the last
     t_grid = np.arange(t[0], t[-1], 1.0 / fs)
-    # Creates a 1D array that has an equal distance of 1/fs (seconds per sample)
-    # that starts at the starting sample time (t[0]) and ends at the last sample
 
+    # Fill in the x and y values at each new time
     x_grid = np.interp(t_grid, t, x)
-    # Takes the shape of t_grid, then uses the values of t and x to interpolate 
-    # an entirely new array of x
-
     y_grid = np.interp(t_grid, t, y)
-    # Takes the shape of t_grid, then uses the values of t and y to interpolate 
-    # an entirely new array of y
 
     return t_grid, x_grid, y_grid
 
 
-
+# Remove bad points from the drawing
 def clean(t, x, y):
+
+    # Turn the times and positions into number arrays
     t = np.asarray(t, dtype=float)
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
 
+    # Keep only the points where the time and position are real numbers, not missing or infinite
     finite = np.isfinite(t) & np.isfinite(x) & np.isfinite(y)
-    # Creates a boolean mask of t, x, and y to keep only the values that
-    # are not NaN or inf (overflow number or number from a division by 0 upstream)
-    
-    t, x, y = t[finite], x[finite], y[finite]
-    # Uses the mask to keep only the usable x, y, and t values
+    t = t[finite]
+    x = x[finite]
+    y = y[finite]
 
+    # If no points are left, return the empty drawing
     if len(t) == 0:
-    #If the length of t is 0, return t, x, and y prematurely to prevent crashing
-        
         return t, x, y
 
+    # Track the latest time seen so far at each point
     running_max = np.maximum.accumulate(t)
-    # Creates an array of the biggest timestamp seen so far from left to right
-    
+
+    # Keep the first point, then keep a point only if its time is later than every time before it
     keep = np.empty(len(t), dtype=bool)
-    # Creates an empty array that is the length of t and contains bool values
-
     keep[0] = True
-    # Keep the first sample no matter what
-
     keep[1:] = t[1:] > running_max[:-1]
-    # Checks each value in t that is greater than the running max with the 
-    # index before the t value
-
 
     return t[keep], x[keep], y[keep]
 
 
-
+# Cut off the still parts at the start and end of the drawing
 def trim_stationary(t, x, y, threshold=0.05, window=10):
+
+    # If the drawing is too short to check, return it as is
     if len(t) <= window + 1:
-    # If the window is too small compared to the total sample size
         return t, x, y
 
+    # Find how far the pen moves and how much time passes across every 10 points
     dx = x[window:] - x[:-window]
-    # Find whether x is moving across a window
-
     dy = y[window:] - y[:-window]
-    # Find whether y is moving across a window
-
     dt = t[window:] - t[:-window]
-    # Find how much time passed across a window
 
+    # Find the pen's speed across every 10 points
     speed = np.hypot(dx, dy) / dt
-    # Find the speed over a window - if it is too small we can ensure that
-    # the pen wasn't moving during that window
 
+    # Mark the places where the pen moves faster than 5% of its median speed
     moving = speed > threshold * np.median(speed)
-    # Checks whether any of the speed values are above the median speed and 
-    # creates a boolean array
 
+    # If the pen never moves, return the drawing as is
     if not np.any(moving):
-    # If none of the speeds came out to be classified as moving
-
         return t, x, y
 
+    # Find the first and last places where the pen moves
     idx = np.flatnonzero(moving)
-    # Provides indexes of where the moving array is true
-
     first = idx[0]
-    # Finds the very first instance of moving
-
     last = idx[-1] + window
-    # Finds the very last instance of moving - any pauses IN BETWEEN 
-    # are kept - THEY ARE THE SIGNALS WE WANT
 
-
+    # Keep everything between them, including any pauses in the middle
     return t[first:last + 1], x[first:last + 1], y[first:last + 1]
 
 
-# Function that smoothens out a drawing sample so that jerk doesn't get miscalculated
+# Smooth out the drawing by removing anything faster than 15 times per second
 def low_pass(t, x, y, fs=100.0, cutoff=15.0, order=4):
 
+    # Build the smoothing filter
     b, a = butter(order, cutoff, btype="low", fs=fs)
-    # Builds the filter recipe - how to blend each sample with its neighbors
 
+    # Stop if the drawing is too short to filter
     if len(x) <= 3 * max(len(a), len(b)):
-    # If the trace is shorter than the padding filtfilt needs
-
         raise ValueError(f"trace too short to filter ({len(x)} samples)")
 
+    # Run the filter forward and then backward on x and y
     return t, filtfilt(b, a, x), filtfilt(b, a, y)
-    # Filters forward then backward so nothing shifts in time
 
 
-# The one chain everything else calls. THE ORDER MATTERS, the JavaScript
-# has to do these same steps in this same order
+# Run every cleanup step in order, the JavaScript runs the same steps in the same order
 def preprocess_trace(t, x, y, fs=100.0, cutoff=15.0, trim=True):
 
+    # Remove bad points
     t, x, y = clean(t, x, y)
-    # Throw out the broken samples
 
+    # Cut off the still parts at the start and end
     if trim:
         t, x, y = trim_stationary(t, x, y)
-    # Cut the dead time off each end - before resample so the grid doesn't
-    # span the pause, before normalize so the resting samples don't drag the center
 
+    # Put the drawing on an even 100 points per second
     t, x, y = resample_uniform(t, x, y, fs=fs)
-    # Put it on an even 100 Hz grid - every frequency measurement assumes this
 
+    # Center and scale the drawing
     x, y = normalize(x, y)
-    # Make tablet units and CSS pixels into the same numbers
 
+    # Smooth out the drawing
     t, x, y = low_pass(t, x, y, fs=fs, cutoff=cutoff)
-    # Smooth off anything faster than a hand can move - after resample,
-    # because only now do we know the rate is exactly 100
 
     return t, x, y
