@@ -24,3 +24,7 @@ training/parity/reference.json
 
 # Internal user-research plans - not for the public repo
 docs/research/
+
+# PaHaW-derived data stays local (license)
+training/results/features_pahaw*.csv
+training/results/features_combined.csv
