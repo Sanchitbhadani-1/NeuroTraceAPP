@@ -1,11 +1,6 @@
-"""Every recording through preprocess + extract, into one feature table.
-
-    PYTHONPATH=. python scripts/build_features.py <root> <out.csv> [--source uci|collected]
-
-collected gives one row PER TRIAL, so aggregate_trials.py can average them and
-noise.py can measure what the averaging buys.
-Aggregate numbers only - never coordinate rows. Safe to share.
-"""
+# BUILD_FEATURES.PY CLEANS EVERY RECORDING, MEASURES ITS FEATURES, AND SAVES THEM ALL IN ONE TABLE
+# COLLECTED RECORDINGS GIVE ONE ROW FOR EACH TRIAL
+# RUN IT WITH PYTHONPATH=. python scripts/build_features.py <root> <out.csv> [--source uci|collected]
 
 import argparse
 import warnings
@@ -18,34 +13,40 @@ from neurotrace.preprocess import preprocess_trace
 from neurotrace.features import extract_spiral_features
 from neurotrace.extra import pressure_features
 
+
+# The number of points per second the drawings are resampled to
 FS = 100.0
 
 
+# Clean one recording and measure its features
 def extract(rec):
 
+    # Clean the drawing and measure the spiral features, hiding any warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         t, x, y = preprocess_trace(rec["t"], rec["x"], rec["y"], fs=FS)
         f = extract_spiral_features(t, x, y, fs=FS)
 
+    # Add the pressure features, measured from the raw times and pressures
     f.update(pressure_features(rec["t"], rec["pressure"]))
-    # Raw samples, not the resampled trace - pressure is a per-sample reading
 
     return f
 
 
+# Measure every recording and put the results in one table
 def build(records):
 
     rows, skipped = [], []
     for rec in records:
 
+        # Measure the recording, or note it and move on if it fails
         try:
             f = extract(rec)
         except ValueError as e:
             skipped.append((rec["subject_id"], rec.get("trial", 1), str(e)))
             continue
-        # Library is strict, batch job is tolerant and says what it skipped
 
+        # Add a row with the recording's details and its features
         rows.append({
             "subject_id": rec["subject_id"],
             "label": rec["label"],
@@ -59,25 +60,29 @@ def build(records):
             "hand": rec.get("hand"),
             "device": rec.get("device"),
 
+            # The raw number of points per second, kept as a detail and not a feature
             "fs_raw": rec["fs"],
-            # Here so the confound check can see it. NOT a feature
 
             "n_raw": len(rec["t"]),
             **f,
         })
 
+    # Print each recording that was skipped and why
     for sid, trial, why in skipped:
         print(f"  SKIPPED {sid} trial {trial}: {why}")
     return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":
+
+    # Read the data folder, the output file, and the data source
     ap = argparse.ArgumentParser()
     ap.add_argument("root")
     ap.add_argument("out")
     ap.add_argument("--source", choices=("uci", "collected"), default="uci")
     args = ap.parse_args()
 
+    # Load the recordings, build the table, save it, and print the row counts
     records = iter_uci(args.root) if args.source == "uci" else iter_collected(args.root)
     df = build(records)
     df.to_csv(args.out, index=False)

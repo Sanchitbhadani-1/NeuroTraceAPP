@@ -3,7 +3,7 @@
 // RUN IT FROM THE REPO FOLDER WITH node app/tools/parity.mjs training/parity/reference.json
 
 import fs from "node:fs";
-import { featuresFromTrace, SPIRAL_FEATURE_ORDER } from "../nt-features.js";
+import { featuresFromTrace, SPIRAL_FEATURE_ORDER } from "../core/nt-features.js";
 
 // The biggest allowed difference, as a share of the Python value
 // The features go from about 0.000001 to 100, and rounding differences land around this size

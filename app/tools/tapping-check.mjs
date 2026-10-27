@@ -3,7 +3,7 @@
 // RUN IT FROM THE REPO FOLDER WITH node app/tools/tapping-check.mjs
 
 import assert from "node:assert/strict";
-import { analyzeTaps } from "../tapping.js";
+import { analyzeTaps } from "../core/tapping.js";
 
 // Camera frames per second
 const FPS = 30;

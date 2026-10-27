@@ -1,11 +1,6 @@
-"""Every PaHaW recording of one task into one feature CSV.
-
-    PYTHONPATH=. python scripts/extract_pahaw.py <pahaw_root> <corpus_PaHaW.xlsx> <out.csv> [task]
-
-task 1 is the spiral (default), 2 is a row of cursive l's.
-Same columns as features_uci395.csv, so evaluate.py runs on either.
-Aggregate numbers only - no coordinate rows leave the machine.
-"""
+# EXTRACT_PAHAW.PY MEASURES EVERY PAHAW RECORDING OF ONE TASK AND SAVES THE FEATURES IN ONE CSV
+# TASK 1 IS THE SPIRAL AND IS USED IF NO TASK IS GIVEN, TASK 2 IS A ROW OF CURSIVE L'S
+# RUN IT WITH PYTHONPATH=. python scripts/extract_pahaw.py <pahaw_root> <corpus_PaHaW.xlsx> <out.csv> [task]
 
 import sys
 import warnings
@@ -18,53 +13,63 @@ from neurotrace.preprocess import preprocess_trace
 from neurotrace.features import extract_spiral_features, extract_writing_features
 from neurotrace.extra import pressure_features, in_air_features
 
+
+# The number of points per second the drawings are resampled to
 FS = 100.0
+
+# The names of the ID and diagnosis columns in the xlsx sheet
 ID_COL = "ID"
 LABEL_COL = "Disease"
 
+# The task number from the command line, or 1 if none is given
 TASK = int(sys.argv[4]) if len(sys.argv) > 4 else 1
 
+# Pick the feature function and task name for the task number
 EXTRACT = {1: extract_spiral_features, 2: extract_writing_features}[TASK]
 TASK_NAME = {1: "spiral", 2: "writing"}[TASK]
-# Look the function up in a dict instead of an if/else - adding task 3 is one line
 
+# Whether y grows upward in the PaHaW files
 Y_UP = True
-# PaHaW's y grows UPWARD like graph paper. Checked by plotting subject 4's l's
 
+# Read the data folder, the xlsx sheet, and the output file
 root, xlsx, out = sys.argv[1], sys.argv[2], sys.argv[3]
 
 
-# --- labels ----------------------------------------------------------
+# LABELS
 
+# Read the xlsx sheet and print its column names
 meta = pd.read_excel(xlsx)
-
 print("xlsx columns:", list(meta.columns))
+
+# Stop if the ID or diagnosis column is missing
 if ID_COL not in meta.columns or LABEL_COL not in meta.columns:
     sys.exit("edit ID_COL / LABEL_COL at the top to match the columns above")
-# Print first, bail loudly - the column names were a guess
 
+# Give each person a label of 1 if their diagnosis starts with P, or 0 if not
 labels = {}
 for sid, val in zip(meta[ID_COL], meta[LABEL_COL]):
     labels[int(sid)] = int(str(val).strip().upper().startswith("P"))
-# 'PD' -> 1, 'H' -> 0. str/strip/upper so pd, PD and " PD " all work
 
 
-# --- extract ---------------------------------------------------------
+# EXTRACT
 
+# Go through every recording of the task
 rows, skipped = [], []
 for path in iter_svc(root, task_id=TASK):
     rec = load_svc(path)
 
+    # Skip the recording if the person has no label
     if rec["subject"] not in labels:
         skipped.append((path.name, "no label in xlsx"))
         continue
 
+    # Keep only the points where the pen touches the tablet
     t, x, y = on_surface(rec)
 
+    # Find the raw points per second from the median time gap between points
     fs_raw = 1.0 / np.median(np.diff(t)[np.diff(t) > 0])
-    # Median gap, so pen lifts do not drag it down. The plot's crude version
-    # said 102 Hz; this says the true 125
 
+    # Clean the drawing and measure its features, or note it and move on if it fails
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -73,11 +78,12 @@ for path in iter_svc(root, task_id=TASK):
     except ValueError as e:
         skipped.append((path.name, str(e)))
         continue
-    # Library is strict, batch job is tolerant and says what it skipped
 
+    # Add a row with the recording's details and its features
     rows.append({
+
+        # The person's id, made of pahaw and the 5 digit person number
         "subject_id": f"pahaw:{rec['subject']:05d}",
-        # Prefixed so it can never collide with a uci: id when tables are stacked
 
         "label": labels[rec["subject"]],
         "source": "pahaw",
@@ -88,16 +94,18 @@ for path in iter_svc(root, task_id=TASK):
 
         **f,
 
+        # The pressure features from the points where the pen is down
         **pressure_features(t, rec["pressure"][rec["pen_down"]]),
-        # On-surface only - in-air pressure is 0 by definition
 
+        # The in air features from the whole recording, pen lifts included
         **in_air_features(rec["t"], rec["pen_down"]),
-        # The FULL recording, lifts included - that is the whole point
     })
 
+# Save the table
 df = pd.DataFrame(rows)
 df.to_csv(out, index=False)
 
+# Print what was skipped, the row counts, and the raw points per second
 for name, why in skipped:
     print(f"  SKIPPED {name}: {why}")
 print(f"{len(df)} rows -> {out}")

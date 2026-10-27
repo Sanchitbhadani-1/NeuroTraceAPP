@@ -1,8 +1,9 @@
 // APP.JS RUNS EVERY SCREEN OF THE NEUROTRACE WEB APP
+// THIS IS THE OLD WEBSITE VERSION OF NEUROTRACE, AND THE IPHONE AND IPAD APP IS IN THE IOS FOLDER
 // IT SWITCHES BETWEEN SCREENS, RUNS THE SPIRAL CHECK-IN, SHOWS RESULTS AND PROGRESS, RUNS THE EXERCISES, AND HANDLES DATA COLLECTION AND SETTINGS
 
-import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "./nt-features.js";
-import { checkScoringFiles, scoreSession } from "./score.js";
+import { SPIRAL_FEATURE_ORDER, featuresFromTrace, normalize, preprocessTrace } from "../core/nt-features.js";
+import { checkScoringFiles, scoreSession } from "../core/score.js";
 import * as copy from "./copy.js";
 import {
   getPrefs, setPrefs, saveAssessment, listAssessments, getAssessment, clearAssessments,
@@ -13,7 +14,7 @@ import {
   EXERCISES, HITS_TO_LEVEL_UP, MISSES_TO_LEVEL_DOWN, newLevelState, applyTry, tooHard, scoreBigWriting,
   pointAlong, tracingPath, scoreTracing, TRACE_LIMIT, rhythmPath, scoreRhythm, RHYTHM_BEATS, COUNT_IN, RHYTHM_LAG, RHYTHM_NEAR,
   scoreTargets, targetRadius, TARGETS, CATCH_SHARE, TAP_PRECISION,
-} from "./train.js";
+} from "../core/train.js";
 import { createPad, spiralPoints, cssVar } from "./pad.js";
 import { reduced, applyMotion, swap, moveLens, reveal, countUp, watchTitle, toast, mountMascots, measuring } from "./motion.js";
 

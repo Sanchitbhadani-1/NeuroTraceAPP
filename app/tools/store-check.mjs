@@ -3,7 +3,7 @@
 // RUN IT FROM THE REPO FOLDER WITH node app/tools/store-check.mjs
 
 import assert from "node:assert/strict";
-import { newSubjectId, getPrefs, setPrefs } from "../store.js";
+import { newSubjectId, getPrefs, setPrefs } from "../old-website/store.js";
 
 // Every new ID is 6 characters, each a number or a lowercase letter from a to f
 for (let i = 0; i < 200; i++) {

@@ -3,7 +3,7 @@
 // RUN IT FROM THE REPO FOLDER WITH node app/tools/hands-check.mjs
 
 import assert from "node:assert/strict";
-import { latestPair, compareHands } from "../hands.js";
+import { latestPair, compareHands } from "../core/hands.js";
 
 // One day in milliseconds
 const DAY = 86400000;

@@ -8,7 +8,7 @@ import {
   HITS_TO_LEVEL_UP, MISSES_TO_LEVEL_DOWN, EXERCISES,
   tracingPath, scoreTracing, rhythmPath, scoreRhythm, pointAlong, scoreTargets, targetRadius,
   TRACE_TURNS, RHYTHM_BEATS, TARGETS, SHRINK_SECS,
-} from "../train.js";
+} from "../core/train.js";
 import { cursiveRow, letterRow, mouseLike, SHAPES } from "./handwriting.mjs";
 
 

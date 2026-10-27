@@ -1,7 +1,5 @@
-"""Plot one PaHaW subject's spiral and first writing task, side by side.
-
-    PYTHONPATH=. python scripts/plot_pahaw.py <pahaw_root> <subject_number>
-"""
+# PLOT_PAHAW.PY DRAWS ONE PAHAW PERSON'S SPIRAL AND FIRST WRITING TASK SIDE BY SIDE
+# RUN IT WITH PYTHONPATH=. python scripts/plot_pahaw.py <pahaw_root> <subject_number>
 
 import sys
 from pathlib import Path
@@ -10,36 +8,37 @@ import matplotlib.pyplot as plt
 
 from neurotrace.pahaw import load_svc, on_surface
 
+
+# Read the data folder and the person's number
 root = Path(sys.argv[1])
 subject = int(sys.argv[2])
 
+# Make a picture with two plots side by side
 fig, axes = plt.subplots(1, 2, figsize=(11, 5))
 
+# Fill the left plot with task 1 and the right plot with task 2
 for ax, task_id, title in ((axes[0], 1, "task 1: spiral"), (axes[1], 2, "task 2: l l l l")):
 
+    # Find the files for this person and task, with the number padded to 5 digits
     matches = sorted(root.rglob(f"{subject:05d}__{task_id}_*.svc"))
-    # 05d pads 4 into 00004, the * is the attempt number
 
+    # If there is no file, say so in the title and move on
     if not matches:
         ax.set_title(f"{title} - no file found")
         continue
 
+    # Load the first file and keep only the points where the pen touches the tablet
     rec = load_svc(matches[0])
     t, x, y = on_surface(rec)
-    # Pen-down only, or air strokes draw lines across the picture
 
     ax.plot(x, y, lw=0.8)
 
+    # Use the same scale on both axes
     ax.set_aspect("equal")
-    # Without this a circle looks like an oval and you cannot trust the shape
 
+    # Show the file name, number of points, length in seconds, and points per second in the title
     ax.set_title(f"{title}\n{matches[0].name}  n={len(x)}  {t[-1]:.1f}s  fs~{len(t) / t[-1]:.0f} Hz")
-    # fs is CRUDE - on_surface dropped samples but the clock kept running, so
-    # it under-reads. Good enough to catch a units disaster, not to quote
 
+# Fit the plots together and show the picture
 plt.tight_layout()
 plt.show()
-
-# THE CHECK IS THE WRITING, NOT THE SPIRAL. Mirror a spiral and you get a
-# spiral. A row of l's is wide and short - tall and narrow means x and y are
-# swapped in pahaw.COLUMNS and every distance feature would be silently wrong.

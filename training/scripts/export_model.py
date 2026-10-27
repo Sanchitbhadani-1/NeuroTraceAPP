@@ -1,21 +1,12 @@
-"""Train the shipping model and write what the app loads.
-
-    PYTHONPATH=. python scripts/export_model.py results/features_uci395.csv results/features_pahaw.csv \
-        [--reference results/features_collected_agg.csv] [--C 0.05]
-
-Two files, two different questions:
-  app/model.json      DIRECTION - what "worse" looks like
-  app/reference.json  THE RULER - what normal looks like on OUR device
-
-The app never sees a training mean. It standardizes against reference.json,
-applies model.json, and reads the percentile off reference.json.
-"""
+# EXPORT_MODEL.PY TRAINS THE FINAL MODEL AND WRITES MODEL.JSON AND REFERENCE.JSON FOR THE APP
+# RUN IT WITH PYTHONPATH=. python scripts/export_model.py results/features_uci395.csv results/features_pahaw.csv [--reference results/features_collected_agg.csv] [--C 0.05]
 
 import argparse
 import datetime
 import json
 import sys
 
+# Let Python find the other files in scripts/
 sys.path.insert(0, "scripts")
 
 import numpy as np
@@ -29,49 +20,52 @@ from neurotrace.preprocess import preprocess_trace
 from neurotrace.features import extract_spiral_features
 from neurotrace.collected import BRACKETS
 
+
+# The fewest healthy people an age bracket needs to get its own block in reference.json
 MIN_BRACKET_N = 12
-# Fewer than this in an age bracket and the app falls back to "all"
 
 
-# --- 1. load ---------------------------------------------------------
+# LOAD
 
+# Read a feature table and keep only the rows used for training
 def load_training(path):
 
     df = pd.read_csv(path)
 
+    # If the table has hw_dataset rows, keep only those rows
     if "release" in df.columns and (df["release"] == "hw_dataset").any():
         df = df[df["release"] == "hw_dataset"]
-    # UCI's new_dataset has no controls, so it cannot be compared against
 
+    # Keep only the people with no diagnosis or with Parkinson's
     if "diagnosis" in df.columns:
         df = df[df["diagnosis"].isin(["none", "parkinsons"])]
-    # Essential tremor is neither, so it is not in the PD-vs-healthy model
 
     return df.reset_index(drop=True)
 
 
-# THE FIX. Each dataset's OWN healthy people are its ruler
+# Scale each feature by the mean and spread of the dataset's own healthy people
 def healthy_standardize(df, cols):
 
     hc = df[df["label"] == 0][cols]
     mu, sd = hc.mean(), hc.std(ddof=0).replace(0, 1.0)
 
     return ((df[cols] - mu) / sd).values
-    # "+2" now means "two healthy-SDs above normal" on ANY tablet. A pooled
-    # scaler put 83% of healthy Czechs in the top 5% of the UCI reference
 
 
-# --- 2. train --------------------------------------------------------
+# TRAIN
 
+# Train a logistic regression model
 def fit(X, y, C):
     return LogisticRegression(C=C, class_weight="balanced", max_iter=2000).fit(X, y)
 
 
+# Run 5 fold cross validation many times and give back the AUC and balanced accuracy percentiles
 def cross_validate(X, y, groups, src, C, repeats=30):
 
     aucs, baccs, within = [], [], {s: [] for s in np.unique(src)}
     for seed in range(repeats):
 
+        # Score each person with a model that was trained without them
         prob = np.full(len(y), np.nan)
         for tr, te in StratifiedGroupKFold(5, shuffle=True, random_state=seed).split(X, y, groups):
             prob[te] = fit(X[tr], y[tr], C).predict_proba(X[te])[:, 1]
@@ -79,26 +73,28 @@ def cross_validate(X, y, groups, src, C, repeats=30):
         aucs.append(roc_auc_score(y, prob))
         baccs.append(balanced_accuracy_score(y, prob >= 0.5))
 
+        # Work out the AUC inside each dataset too
         for s in within:
             m = src == s
             within[s].append(roc_auc_score(y[m], prob[m]))
-        # Per dataset too - that is where the medication story shows up
 
+    # Give back the 5th, 50th and 95th percentiles of each
     p = lambda a: np.percentile(a, [5, 50, 95]).tolist()
     return p(aucs), p(baccs), {s: p(v) for s, v in within.items()}
 
 
-# --- 3. reference ----------------------------------------------------
+# REFERENCE
 
+# Build the reference block for one group of healthy people
 def bracket_block(hc, cols, weights, bias):
 
     mu, sd = hc[cols].mean(), hc[cols].std(ddof=0).replace(0, 1.0)
 
+    # Score every person in the group against the group's own mean and spread
     z = ((hc[cols] - mu) / sd).values
     score = 1 / (1 + np.exp(-(bias + z @ weights)))
-    # Every reference person scored against their OWN bracket, so a user's
-    # percentile means "among people like you"
 
+    # Give back the count, means, spreads, sorted feature values and sorted scores
     return {
         "n": int(len(hc)),
         "mean": mu.tolist(),
@@ -108,11 +104,13 @@ def bracket_block(hc, cols, weights, bias):
     }
 
 
+# Build reference.json from the healthy people in a table
 def build_reference(df, cols, weights, bias, device_matched, source):
 
+    # Take the people with no diagnosis, or with label 0 if there is no diagnosis column
     hc = df[df["diagnosis"] == "none"] if "diagnosis" in df.columns else df[df["label"] == 0]
-    # diagnosis, NOT label - essential tremor is label 0 and is not healthy
 
+    # Start with a block for everyone
     out = {
         "version": 2,
         "task": "spiral",
@@ -124,59 +122,70 @@ def build_reference(df, cols, weights, bias, device_matched, source):
         "brackets": {"all": bracket_block(hc, cols, weights, bias)},
     }
 
+    # Add a block for each age bracket that has at least MIN_BRACKET_N people
     if "age_bracket" in hc.columns:
         for b in BRACKETS:
             sub = hc[hc["age_bracket"] == b]
             if len(sub) >= MIN_BRACKET_N:
                 out["brackets"][b] = bracket_block(sub, cols, weights, bias)
-    # A thin bracket is worse than none - the app falls back to "all"
 
     return out
 
 
-# --- main ------------------------------------------------------------
+# MAIN
 
+# Train the model, print its scores, and write model.json and reference.json
 def main():
+
+    # Read the command line settings
     ap = argparse.ArgumentParser()
     ap.add_argument("training", nargs="+", help="feature CSVs with patients AND controls")
     ap.add_argument("--reference", help="aggregated collected CSV; healthy rows become the ruler")
     ap.add_argument("--C", type=float, default=0.05)
-    ap.add_argument("--out-dir", default="../app")
+    ap.add_argument("--out-dir", default="../app/old-website")
     args = ap.parse_args()
 
+    # Load each training table, named after its file
     sets = {p.split("/")[-1].replace("features_", "").replace(".csv", ""): load_training(p)
             for p in args.training}
 
+    # List the spiral feature columns
     cols = [c for c in next(iter(sets.values())).columns if c.startswith("spiral_")]
 
+    # Stop if the columns are not in the same order as the features the code makes
     expected = list(extract_spiral_features(*preprocess_trace(*create_spiral_synth()), fs=100.0).keys())
     assert cols == expected, f"CSV columns {cols} != featureOrder {expected}"
-    # Refuse to write weights that would land on the wrong features
 
+    # Scale each dataset by its own healthy people and stack them together
     X = np.vstack([healthy_standardize(d, cols) for d in sets.values()])
     y = np.concatenate([d["label"].values for d in sets.values()])
     groups = np.concatenate([d["subject_id"].values for d in sets.values()])
     src = np.concatenate([[name] * len(d) for name, d in sets.items()])
 
+    # Run cross validation and print the results
     cv_auc, cv_bacc, within = cross_validate(X, y, groups, src, args.C)
     print(f"combined  AUC {cv_auc[1]:.3f} [{cv_auc[0]:.3f}-{cv_auc[2]:.3f}]   bal.acc {cv_bacc[1]:.3f}")
     for s, v in within.items():
         print(f"  within {s:10s} AUC {v[1]:.3f} [{v[0]:.3f}-{v[2]:.3f}]")
 
+    # Train the final model on everyone
     model = fit(X, y, args.C)
     weights = model.coef_[0]
     bias = float(model.intercept_[0])
 
+    # Build model.json
     model_out = {
         "version": 2,
         "task": "spiral",
         "featureOrder": cols,
 
+        # The weights work on features scaled by healthy standard deviations
         "units": "healthy_sd",
-        # The app MUST standardize against reference.json before applying these
 
         "weights": weights.tolist(),
         "bias": bias,
+
+        # The date, data sources, counts, settings and cross validation scores
         "trainedOn": {
             "date": datetime.date.today().isoformat(),
             "sources": list(sets),
@@ -187,12 +196,13 @@ def main():
             "cvBalancedAccuracy": cv_bacc,
             "withinDataset": within,
         },
-        # So the app can say where the comparison came from instead of
-        # hardcoding a sentence someone forgets to update
     }
+
+    # Save model.json
     with open(f"{args.out_dir}/model.json", "w") as f:
         json.dump(model_out, f, indent=2)
 
+    # Build the reference from the collected table if one is given, or else from the training set with the most healthy people
     if args.reference:
         ref_df = pd.read_csv(args.reference)
         ref = build_reference(ref_df, cols, weights, bias, True, "neurotrace collected")
@@ -200,11 +210,12 @@ def main():
         biggest = max(sets.items(), key=lambda kv: (kv[1]["label"] == 0).sum())
         ref = build_reference(biggest[1], cols, weights, bias, False, f"{biggest[0]} controls (stand-in)")
         print(f"\nNO COLLECTED DATA - reference is {biggest[0]}'s controls, deviceMatched: false")
-    # Until we have our own testers, the biggest set of controls stands in
 
+    # Save reference.json
     with open(f"{args.out_dir}/reference.json", "w") as f:
         json.dump(ref, f, indent=2)
 
+    # Print the reference source, the size of each bracket, and the files written
     print(f"\nreference: {ref['source']}, brackets " +
           ", ".join(f"{b}={blk['n']}" for b, blk in ref["brackets"].items()))
     print(f"wrote {args.out_dir}/model.json and {args.out_dir}/reference.json")

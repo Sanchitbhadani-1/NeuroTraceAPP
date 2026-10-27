@@ -10,9 +10,9 @@ import {
   averageFeatures,
   scoreSession,
   fractionBelow,
-} from "../score.js";
-import { MEASURES, GROUPS, measureSentence } from "../copy.js";
-import { SPIRAL_FEATURE_ORDER } from "../nt-features.js";
+} from "../core/score.js";
+import { MEASURES, GROUPS, measureSentence } from "../old-website/copy.js";
+import { SPIRAL_FEATURE_ORDER } from "../core/nt-features.js";
 
 // The names of the two made up measurements
 const ORDER = ["f0", "f1"];
@@ -167,8 +167,8 @@ assert.equal(bracketFor(refBrackets, "70s").block, refBrackets.brackets["70s"]);
 
 // The real model.json and reference.json in the app pass the check
 {
-  const model = JSON.parse(fs.readFileSync(new URL("../model.json", import.meta.url)));
-  const reference = JSON.parse(fs.readFileSync(new URL("../reference.json", import.meta.url)));
+  const model = JSON.parse(fs.readFileSync(new URL("../old-website/model.json", import.meta.url)));
+  const reference = JSON.parse(fs.readFileSync(new URL("../old-website/reference.json", import.meta.url)));
   assert.doesNotThrow(() => checkScoringFiles(model, reference, SPIRAL_FEATURE_ORDER));
 }
 

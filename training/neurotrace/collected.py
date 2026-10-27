@@ -1,21 +1,21 @@
+# COLLECTED.PY READS THE DRAWINGS THE NEUROTRACE APP EXPORTS
+# IT TURNS EACH EXPORTED SESSION INTO ONE RECORD PER TRIAL
+
 import json
 from pathlib import Path
 
 import numpy as np
 
 
-# Traces WE collect, on OUR device. datasets.py and pahaw.py are somebody
-# else's tablet; these are what the runtime reference is built from.
-# Format is in docs/COLLECTED_FORMAT.md.
-
+# The age groups the reference is split into
 BRACKETS = ("50s", "60s", "70s", "80+")
-# A healthy 80 year old draws differently from a healthy 55 year old, so the
-# reference is split by these and the app picks the user's
 
+
+# The diagnosis that counts as healthy
 HEALTHY = "none"
-# Only this diagnosis goes in the healthy reference
 
 
+# Turn an age into its age group, or None if there is no age
 def age_bracket(age):
     if age is None:
         return None
@@ -28,31 +28,35 @@ def age_bracket(age):
     return "80+"
 
 
-# One exported session - one person, one sitting - into one record per trial
+# Turn one exported session into one record per trial
 def parse_session(obj):
 
+    # Read who drew it and their diagnosis, using healthy if none is given
     subject = obj["subjectId"]
     diagnosis = obj.get("diagnosis", HEALTHY)
 
+    # Use the age group the app sent, or work it out from the age
     bracket = obj.get("ageBracket") or age_bracket(obj.get("age"))
-    # Take the bracket if the app sent one, otherwise work it out from the age
 
     for trial in obj["trials"]:
+
+        # Pull the times, positions and pressure out of each sample
         samples = trial["samples"]
         t = np.array([s["t"] for s in samples], dtype=float)
         x = np.array([s["x"] for s in samples], dtype=float)
         y = np.array([s["y"] for s in samples], dtype=float)
-        p = np.array([s.get("pressure", 0.0) for s in samples], dtype=float)
-        # .get so a finger trace with no pressure reads 0 instead of crashing
 
+        # Use 0 for the pressure when a sample has none
+        p = np.array([s.get("pressure", 0.0) for s in samples], dtype=float)
+
+        # Give back the trial as one record
         yield {
             "t": t, "x": x, "y": y, "pressure": p,
             "subject_id": f"nt:{subject}",
 
+            # Set label to 1 only for Parkinson's, and keep the full diagnosis too
             "label": int(diagnosis == "parkinsons"),
             "diagnosis": diagnosis,
-            # TWO fields on purpose - essential tremor is label 0 but is NOT
-            # healthy. The reference filters on diagnosis, never on label
 
             "source": "neurotrace",
             "release": "collected",
@@ -67,25 +71,31 @@ def parse_session(obj):
         }
 
 
+# Work out the samples per second from the times
 def estimate_fs(t):
+
+    # Find the gaps between times, keeping only gaps above 0
     dt = np.diff(t)
     dt = dt[dt > 0]
-    # Median not mean - a pen lift would drag the mean down
+
+    # Divide 1 by the middle gap, or give back NaN if there are no gaps
     return float(1.0 / np.median(dt)) if len(dt) else float("nan")
 
 
-# Every trial in every export file under root
+# Give back every trial of the given task in every export file under root
 def iter_collected(root, task="spiral"):
 
+    # Use root itself if it is a file, or every JSON file under it
     root = Path(root)
     paths = [root] if root.is_file() else sorted(root.rglob("*.json"))
 
     for path in paths:
         blob = json.loads(path.read_text())
 
+        # Treat the file as a list of sessions, even if it holds just one
         sessions = blob if isinstance(blob, list) else [blob]
-        # One file may hold one session or a whole visit's worth
 
+        # Keep only the trials of the given task
         for obj in sessions:
             for rec in parse_session(obj):
                 if rec["task"] == task:

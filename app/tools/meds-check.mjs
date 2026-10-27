@@ -3,7 +3,7 @@
 // RUN IT FROM THE REPO FOLDER WITH node app/tools/meds-check.mjs
 
 import assert from "node:assert/strict";
-import { hoursSinceDose, groupByHoursSinceDose, highestBin, doseTiming, MIN_CHECKINS } from "../meds.js";
+import { hoursSinceDose, groupByHoursSinceDose, highestBin, doseTiming, MIN_CHECKINS } from "../core/meds.js";
 
 // One hour in milliseconds
 const H = 3600000;
